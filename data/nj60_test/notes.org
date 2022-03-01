@@ -1,0 +1,27 @@
+* Tests 19.07.21:
+** Contact tests
+   W/ and w/o lead controller
+   - 1.bag: kl 2e-2, standard damp/mass
+   - 2.bag: kl 0e0,  standard damp/mass
+   - 3.bag: kl 3e-2, standard damp/mass, b_real 7.5e-6
+
+   Contact on the pins
+   - 4.bag:  kl 3e-2, D 1000
+   - 5.bag:  kl 4e-2, D 1000, M 10, b_real 1e-5 -> unstable!
+   - 6.bag:  kl 2e-2, D 1000, M 10, b_real 1e-5, acc_comp
+   - 7.bag:  kl 4e-2, D 1000, M 20, b_real 1e-5, acc_comp
+   - x.bag:  kl 6e-2, D 1000, M 20, b_real 1e-5, acc_comp -> unstable!
+   - 8.bag:  kl 3e-2, D 1000, M 10, b_real 2e-5, acc_comp
+   - 10.bag: kl 3e-2, D 1000, M 10, b_real 0,    acc_comp
+   - 12.bag: " ", acc_alpha 0.5, vel_alpha 0.6 
+
+   Contact on yellow table
+   - 13.bag "", no other changes
+   - 14.bag "" no acc_comp
+   - 15.bag "" euler discretization
+** Compliant magazine
+   - Flat contact
+   - Edge-on, zoom
+   - Edge-on, overview
+
+  

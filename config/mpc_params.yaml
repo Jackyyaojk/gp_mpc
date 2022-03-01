@@ -1,0 +1,74 @@
+
+#### COST FUNCTION PARAMETERS  ####
+H: 1        # Human force cost
+H_jt: 0.0   # Human joint cost
+I: 370      # Human force covariance cos 
+Q_pos: 0.0  # Position cost
+Q_vel: 0.1  # Velocity cost
+S: 0.2      # State covariance cost
+
+R: 0.30     # Contol cost
+u_lin_max: 20.0 # Max linear force (N)
+
+delta_B_cost: 0.001
+delta_M_cost: 0.001
+delta_B_max: 25
+delta_M_max: 0.5
+B_min: 300
+M_min: 5
+
+Rr: 70.0    # Rotational control cost
+u_rot_max: 6.0 # Max rotational force (Nm)
+
+#### MPC Problem ####
+enable_rotation: false
+match_human_force: false     # Cost function penalizes |f_human -j u| instead of |f_human|
+risk_sens: -0.0             # -0.02 is OK. If 0, standard expected cost used
+simplify_cov: true          # Use only  first element in GP covariance, axis specified in gp_params
+integrator: 'implicit'      # 'explicit'      # explicit, semi-implicit, or trapezoidal
+state_cov: true            # Integrate uncertainty in state (pos + vel)
+opti_MBK: true             # Jointly optimize M/B/K params
+opti_hum_shoulder: false    # Optimize the human shoulder position
+opti_hum_jts: false         # Optimize the human joint positions
+
+mpc_pts: 5
+dt: 0.095 # 0.095
+constraint_slack: 0.0
+bound_relax_factor: 1e-5
+
+chance_prob: 0 # 0.9
+chance_bnd: 0 # 30
+
+well_damped_margin: 0 # 3.0
+
+sim: true
+safety_control: false
+
+# Outputs and debug
+print_control: true
+live_plot: false    # display the trajectory planning, pretty big perf reduction
+save_plot: false   # save the trajectory animation
+precomp: false     # precompile the MPC solver
+print_IPOPT: false  # Print MPC output to mpc_log
+
+# Human arm
+max_shoulder: 0.35          # Range (in m) for max x/y translation of shoulder
+human_kin: 
+  center:
+  - 1.8
+  - 0.3
+  - 0.5
+  lengths:
+  - 0.45
+  - 0.45
+hum_jt_lim: # Multiples of pi!
+  low:
+  - -1.5
+  - -1.5
+  - -0.7
+  - 0.0
+  high:
+  - -0.5
+  - -0.5
+  - 0.75
+  - 1.0

@@ -1,0 +1,36 @@
+data_path:
+  left: !!set
+    data/nj60_double_left/1.bag: null
+    data/nj60_double_left/2.bag: null
+    data/nj60_double_left/3.bag: null
+  right: !!set
+    data/nj60_double_right/1.bag: null
+    data/nj60_double_right/2.bag: null
+    data/nj60_double_right/3.bag: null
+gp_method: ME
+simplify_cov_axis: 0        # Which axis to use for the reduced cov (default 0, only nec if kernel not homogeneous)
+hyper: 
+  length_scale: 0.16
+  mean: 0.0
+  noise_var:  3.5
+  signal_var: 2.75
+hyper_rot:
+  length_scale: 0.20
+  noise_var: 3.75
+  signal_var: 1.35
+mag_dir: false
+model_path: data/GP_models.pkl
+num_model_points: 50
+num_sparse_points: 0
+trim_thresh_force: 0.0
+trim_thresh_init: 0.05
+trim_workspace: 50
+obs_noise: 0.95
+
+opt_hyper: false
+opt_numeric: false
+print_hyper: true
+plot: true
+plot_data: true
+plot_linear: false
+plot_extension: 0.2

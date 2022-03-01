@@ -1,0 +1,8 @@
+src/__pycache__/
+*.pyc
+src/nlp.so
+src/nlp.c
+.#*
+*.pkl
+src/logs/*
+src/animation_frames/*

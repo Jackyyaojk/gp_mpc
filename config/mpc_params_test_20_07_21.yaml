@@ -1,0 +1,33 @@
+constraint_slack: 0.0
+H: 0.1     # Human force
+H_jt: 0.0
+I: 22.5      # Human force cov 
+Q_pos: 0.0 # Position cost
+Q_vel: 0.1 # Velocity cost
+R: 0.125     # Contol cost
+S: 0.2     # State covariance
+u_max: 20.0
+
+mpc_pts: 7
+dt: 0.05
+
+constraint_slack: 0.0
+bound_relax_factor: 1e-5
+
+simplify_cov: true
+integrator: 'explicit' # or 'semi-implicit', or 'trapezoidal'
+opti_MBK: false
+
+human_kin:
+  center:
+  - 2.2
+  - 0.0
+  - 1.5
+  lengths:
+  - 0.55
+  - 0.55
+opti_hum_force_var: false
+
+live_plot: true
+precomp: false
+print_IPOPT: false

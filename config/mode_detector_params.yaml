@@ -1,0 +1,8 @@
+anomaly_lik: -20.0 # -0.75
+bel_floor: -8.0
+bel_smoothing: 35.0
+lik_floor: -3.0
+min_force: 3.0
+print_belief: true
+print_dof_lik: false
+use_direction: true
