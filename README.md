@@ -19,9 +19,9 @@ Repo also includes code for building/fitting GP models from rosbags and visualiz
 Code associated with `https://arxiv.org/abs/2110.12433`
 
 <details><summary>Software Requirements</summary>
-- [ ] CasADi
-- [ ] HSL linear solvers (recommended!)
-- [ ] ROS
+ - [ ] CasADi
+ - [ ] HSL linear solvers (recommended!)
+ - [ ] ROS
 </details>
 
 
