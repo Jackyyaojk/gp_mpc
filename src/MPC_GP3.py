@@ -45,7 +45,7 @@ class MPC:
             self.out_file_path = "logs/ipopt_print"
             self.options['ipopt.output_file'] = self.out_file_path
 
-    def solve(self, init_pose_num = None, belief_num = None, imp_params_num = None):
+    def solve(self, init_pose_num = None, belief_num = None, imp_params_num_mass = None, imp_params_num_damp = None):
         # arguments are the numerical values of initial robot pose, mode belief, and impedance parameters
         # Set initial conditions:
         if init_pose_num.any() == None:
@@ -54,18 +54,18 @@ class MPC:
         if belief_num == None:
             print('No belief given to MPC solve')
             belief_num = {mode:1.0/len(self.__modes) for mode in self.__modes}
-        if imp_params_num.any() == None:
+        if imp_params_num_mass.any() == None:
             print('No initial impedance params given, using defaults')
-            imp_params_num = np.array([10., 10., 10., 0.5, 0.5, 0.5,
-                                       1000., 1000., 1000., 200., 200., 200 ])
-        imp_params_num = np.hstack((imp_params_num[:self.__N_p], imp_params_num[6:6+self.__N_p]))
+            imp_params_num_mass = np.array([10., 10., 10., 0.5, 0.5, 0.5])
+            imp_params_num_damp = np.array([1000., 1000., 1000., 200., 200., 200])
+        imp_params_num = np.hstack((imp_params_num_mass[:self.__N_p], imp_params_num_damp[:self.__N_p]))
         # Build parameter vector p_num, which is the numerical value of all non-decision variables
         p_num = init_pose_num
         for mode in self.__modes:
             p_num = np.append(p_num, belief_num[mode])
         p_num = np.append(p_num, imp_params_num)
         p_num_imp = deepcopy(p_num)
-        p_num = np.append(p_num, 0.4*np.ones(2*self.__N_p)) # bound those pesky imp pars
+        #p_num = np.append(p_num, 0.4*np.ones(2*self.__N_p)) # bound those pesky imp pars
         #Create problem and solver
         if not hasattr(self, "solver"):
             self.solverhelper()
@@ -264,7 +264,7 @@ class MPC:
         for mode in self.__modes:
             p += [belief[mode]]
         p += [init_imp_params]
-        p += [imp_par_bnd]
+#        p += [imp_par_bnd]
 
         # Functions to get x, u and human force from w
         self.extract_traj = { mode: ca.Function('extract_traj', [ca.vertcat(*w)],

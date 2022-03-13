@@ -118,14 +118,14 @@ class mpc_impedance_control():
         if self.mode_detector_params['print_belief']:
             prstr += 'Bel '
             for mode in self.modes:
-                prstr += mode + ':' + '{self.mode_detector.bel[mode]:6.3f}'+' | '
+                prstr += mode + ':' + '{: 6.3f}'.format(self.mode_detector.bel[mode])+' | '
 
         if not rospy.is_shutdown():
             des_force = np.zeros(self.obs_dim)
             if not send_zeros:
-                imp_params_num = np.hstack((self.impedance_params['M'], self.impedance_params['B']))
                 start = time.time()
-                u_opt_traj = self.mpc.solve(self.state, self.mode_detector.bel, imp_params_num)
+                u_opt_traj = self.mpc.solve(self.state, self.mode_detector.bel,
+                                            self.impedance_params['M'], self.impedance_params['B'])
                 self.timelist.append((time.time() - start))
                 des_force = u_opt_traj[:self.obs_dim,0]
 
@@ -136,11 +136,10 @@ class mpc_impedance_control():
                         prstr += '\n Delta_M {} | Delta_B {} '\
                                   .format(-self.mpc.mbk_traj[:self.state_dim], -self.mpc.mbk_traj[:self.state_dim])
                         prstr += '\n M {} | B {} | '.format(self.impedance_params['M'][:self.state_dim],
-                                                         self.impedance_params['B'][self.state_dim:] )
+                                                            self.impedance_params['B'][:self.state_dim] )
                     prstr += 'total {: 6.3f}'.format(time.time()-self.control_time)
                     self.control_time = time.time()
                     print(prstr)
-                    #print(self.mpc.x_traj)
 
                 if self.mpc_params['sim']:
                     if self.mpc_params['opti_MBK']:

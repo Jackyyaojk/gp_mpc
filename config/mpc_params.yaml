@@ -5,13 +5,13 @@ H_jt: 0.0   # Human joint cost
 I: 370      # Human force covariance cos 
 Q_pos: 0.0  # Position cost
 Q_vel: 0.1  # Velocity cost
-S: 0.2      # State covariance cost
+S: 1.0      # State covariance cost
 
 R: 0.30     # Contol cost
 u_lin_max: 20.0 # Max linear force (N)
 
-delta_B_cost: 0.001
-delta_M_cost: 0.001
+delta_B_cost: 0.0005
+delta_M_cost: 0.005
 delta_B_max: 25
 delta_M_max: 0.5
 B_min: 300

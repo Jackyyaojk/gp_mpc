@@ -12,10 +12,10 @@ from os.path import isfile
 import pickle
 
 # Custom classes
-from mode_inference import mode_detector
-from gp_mpc import GP
-from gp_sparse import gp_sparse
-from helper_fns import msg_to_state, msg_to_obs, force_comp_to_world
+#from .mode_inference import mode_detector
+from .gp_mpc.gp_class import GP
+from .gp_sparse import gp_sparse
+from .helper_fns import msg_to_state, msg_to_obs, force_comp_to_world
 
 class gp_model():
     '''
