@@ -42,7 +42,6 @@ class mpc_impedance_control():
         np.set_printoptions(formatter={'float': '{: 6.2f}'.format})
 
         # Set up or load gp models
-        if self.gp_params['opt_hyper']: self.gp_params['hyper'] = None # Forces optimization of hyperparams
         self.gp_models = gp_model(self.gp_params, rotation = self.rotation)
         self.models, self.modes = self.gp_models.load_models()
         self.mode_detector = mode_detector(self.modes, self.models,
@@ -74,7 +73,7 @@ class mpc_impedance_control():
                                             Float64MultiArray, queue_size = 1)
         self.pub_control = rospy.Publisher ('delta_impedance_gains',
                                             JointState, queue_size = 1)
-        if self.mpc_params['sim']: self.pub_imp = rospy.Publisher('impedance_gains_sim', JointState)
+        if self.mpc_params['sim']: self.pub_imp = rospy.Publisher('impedance_gains_sim', JointState, queue_size = 1)
 
         # Init animation
         if self.mpc_params['live_plot'] or self.mpc_params['save_plot']:  self.animate_init()
@@ -183,7 +182,6 @@ class mpc_impedance_control():
                     msg_imp.effort[:self.state_dim] = np.array(self.impedance_params['M'][:self.state_dim])
                     msg_imp.effort[6:6+self.state_dim] = np.array(self.impedance_params['Fd'][:self.state_dim])
                     self.pub_imp.publish(msg_imp)
-            
 
     def animate_update(self):
         # Plot planned trajectories

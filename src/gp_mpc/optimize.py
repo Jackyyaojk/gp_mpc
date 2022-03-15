@@ -2,24 +2,21 @@
 """
 Optimize hyperparameters for Gaussian Process Model
 Copyright (c) 2018, Helge-André Langåker
+Copyright (c) 2022, Kevin Haninger
 """
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
+from __future__ import (absolute_import, division, print_function)
 
 import time
-import pyDOE
 import numpy as np
 import casadi as ca
 from scipy.spatial import distance
-from .gp_functions import get_mean_function, gp, gp_exact_moment
+from .gp_functions import build_mean_func, build_matrices
 from scipy.optimize import minimize
 
 # -----------------------------------------------------------------------------
 # Optimization of hyperperameters as a constrained minimization problem
 # -----------------------------------------------------------------------------
-def calc_NLL(hyper, X, Y, squaredist, meanFunc='zero', prior=None):
+def calc_NLL(hyper, X, Y, mean_func='zero', prior=None):
     """ Objective function
 
     Calculate the negative log likelihood function using Casadi SX symbols.
@@ -27,6 +24,7 @@ def calc_NLL(hyper, X, Y, squaredist, meanFunc='zero', prior=None):
     # Arguments:
         hyper: Array with hyperparameters [ell_1 .. ell_Nx sf sn], where Nx is the
             number of inputs to the GP.
+
         X: Training data matrix with inputs of size (N x Nx).
         Y: Training data matrix with outpyts of size (N x Ny),
             with Ny number of outputs.
@@ -35,48 +33,13 @@ def calc_NLL(hyper, X, Y, squaredist, meanFunc='zero', prior=None):
         NLL: The negative log likelihood function (scalar)
     """
 
-    N, Nx = ca.MX.size(X)
-    ell = hyper[:Nx]
-    sf2 = hyper[Nx]**2
-    sn2 = hyper[Nx + 1]**2
-
-    m = get_mean_function(hyper, X.T, func=meanFunc)
-
-    # Calculate covariance matrix
-    K_s = ca.SX.sym('K_s',N, N)
-    sqdist = ca.SX.sym('sqd', N, N)
-    elli = ca.SX.sym('elli')
-    ki = ca.Function('ki', [sqdist, elli, K_s], [sqdist / elli**2 + K_s])
-    K1 = ca.MX(N, N)
-    for i in range(Nx):
-        K1 = ki(squaredist[:, (i  * N):(i + 1) * N], ell[i], K1)
-
-    sf2_s   = ca.SX.sym('sf2')
-    exponent   = ca.SX.sym('exp', N, N)
-    K_exp = ca.Function('K', [exponent, sf2_s], [sf2_s * ca.SX.exp(-.5 * exponent)])
-    K2 = K_exp(K1, sf2)
-
-    K = K2 + sn2 * ca.MX.eye(N)
-    K = (K + K.T) * 0.5   # Make sure matrix is symmentric
-
-    A = ca.SX.sym('A', ca.MX.size(K))
-    cholesky = ca.Function('cholesky', [A], [ca.chol(A).T])
-    L = cholesky(K)
-
-    B = 2 * ca.sum1(ca.SX.log(ca.diag(A)))
-    log_determinant = ca.Function('log_det', [A], [B])
-    log_detK = log_determinant(L)
-
-    Y_s = ca.SX.sym('Y', ca.MX.size(Y))
-    L_s = ca.SX.sym('L', ca.Sparsity.lower(N))
-    sol = ca.Function('sol', [L_s, Y_s], [ca.solve(L_s, Y_s)])
-    invLy = sol(L, Y - m(X.T))
-
-    invLy_s = ca.SX.sym('invLy', ca.MX.size(invLy))
-    sol2 = ca.Function('sol2', [L_s, invLy_s], [ca.solve(L_s.T, invLy_s)])
-    alpha = sol2(L, invLy)
-    alph = ca.SX.sym('alph', ca.MX.size(alpha))
-    detK = ca.SX.sym('det')
+    m = build_mean_func(X, hyper = hyper, mean_func=mean_func, Ny = Y.shape[1])
+    alphas, Ls, _ = build_matrices(X, Y, hyper, mean_func = mean_func)
+    NLL  = 0
+    mean = m(X)
+    for i, (alpha, L) in enumerate(zip(alphas, Ls)):
+        NLL += 0.5 * (Y[:,i]-mean[:,i]).T@alpha
+        NLL += ca.sum1(ca.SX.log(ca.diag(L)))
 
     # Calculate hyperpriors
     theta = ca.SX.sym('theta')
@@ -90,13 +53,9 @@ def calc_NLL(hyper, X, Y, squaredist, meanFunc='zero', prior=None):
             log_prior += prior_gauss(ell[i], prior['ell_mean'], prior['ell_std']**2)
         log_prior += prior_gauss(sf2, prior['sf_mean'], prior['sf_std']**2)
         log_prior += prior_gauss(sn2, prior['sn_mean'], prior['sn_std']**2)
+    return NLL + log_prior
 
-    NLL = ca.Function('NLL', [Y_s, alph, detK],
-                      [0.5 * ca.mtimes(Y_s.T, alph) + 0.5 * detK])
-    return NLL(Y - m(X.T), alpha, log_detK) + log_prior
-
-
-def train_gp(X, Y, meanFunc='zero', hyper_init=None, lam_x0=None, log=False,
+def train_gp(X, Y, hyper_init, mean_func='zero',
              multistart=1, optimizer_opts=None):
     """ Train hyperparameters using CasADi/IPOPT
 
@@ -131,70 +90,43 @@ def train_gp(X, Y, meanFunc='zero', hyper_init=None, lam_x0=None, log=False,
                 [ell_1 .. ell_Nx sf sn].
     """
 
-    if log:
-        X = np.log(X)
-        Y = np.log(Y)
-
     N, Nx = X.shape
     Ny = Y.shape[1]
-    # Counting mean function parameters
-    if meanFunc == 'zero':
-        h_m = 0
-    elif meanFunc == 'const':
-        h_m = 1
-    elif meanFunc == 'linear':
-        h_m = Nx + 1
-    elif meanFunc == 'polynomial':
-        h_m = 2 * Nx + 1
-    else:
-        raise NameError('No mean function called: ' + meanFunc)
 
-    h_ell   = Nx    # Number of length scales parameters
-    h_sf    = 1     # Standard deviation function
-    h_sn    = 1     # Standard deviation noise
-    num_hyp = h_ell + h_sf + h_sn + h_m
-    prior = None
-#    prior = dict(
-#                ell_mean = 10,
-#                ell_std = 10,
-#                sf_mean  = 10,
-#                sf_std  = 10,
-#                sn_mean  = 1e-5,
-#                sn_std  = 1e-5
-#            )
+    param_list = hyper_init.keys()
+    hyper_delta_sym = {hy: ca.SX.sym(hy+'_sym', hyper_init[hy].shape) for hy in param_list}
+
+    hyper_total = {hy: hyper_init[hy]+hyper_delta_sym[hy] for hy in param_list}
 
     # Create solver
-    Y_s          = ca.MX.sym('Y', N)
-    X_s          = ca.MX.sym('X', N, Nx)
-    hyp_s        = ca.MX.sym('hyp', 1, num_hyp)
-    squaredist_s = ca.MX.sym('sqdist', N, N * Nx)
-    param_s      = ca.horzcat(squaredist_s, Y_s)
+    NLL = calc_NLL(hyper_total, X, Y, mean_func=mean_func, prior=None)
 
-    NLL_func = ca.Function('NLL', [hyp_s, X_s, Y_s, squaredist_s],
-                           [calc_NLL(hyp_s, X_s, Y_s, squaredist_s,
-                                     meanFunc=meanFunc, prior=prior)])
-    nlp = {'x': hyp_s, 'f': NLL_func(hyp_s, X, Y_s, squaredist_s), 'p': param_s}
+    hyper_delta_sym_vec = []
+    for param in param_list:
+        param_size = hyper_total[param].shape[0]*hyper_total[param].shape[1]
+        hyper_delta_sym_vec.append(hyper_delta_sym[param].reshape((param_size,1)))
+    hyper_delta_sym_vec = ca.vertcat(*hyper_delta_sym_vec)
+    num_hyp = hyper_delta_sym_vec.shape[0]
+
+    nlp = {'x': hyper_delta_sym_vec, 'f': NLL}
 
     # NLP solver options
     opts = {}
     opts['expand']              = False
     opts['print_time']          = False
     opts['verbose']             = False
-    opts['ipopt.print_level']   = 2
+    opts['ipopt.print_level']   = 5
     opts['ipopt.constr_viol_tol'] = 1e-14
     opts['ipopt.tol']          = 1e-16
     opts['ipopt.mu_strategy']  = 'adaptive'
     if optimizer_opts is not None:
         opts.update(optimizer_opts)
 
-    warm_start = False
-    if hyper_init is not None:
-        opts['ipopt.warm_start_init_point'] = 'yes'
-        warm_start = True
-    Solver = ca.nlpsol('Solver', 'ipopt', nlp, opts)
+    opts['ipopt.warm_start_init_point'] = 'yes'
+    warm_start = True
 
-    hyp_opt = np.zeros((Ny, num_hyp))
-    lam_x_opt = np.zeros((Ny, num_hyp))
+    solver = ca.nlpsol('Solver', 'ipopt', nlp, opts)
+
     invK = np.zeros((Ny, N, N))
     alpha = np.zeros((Ny, N))
     chol = np.zeros((Ny, N, N))
@@ -202,96 +134,36 @@ def train_gp(X, Y, meanFunc='zero', hyper_init=None, lam_x0=None, log=False,
     print('\n________________________________________')
     print('# Optimizing hyperparameters (N=%d)' % N )
     print('----------------------------------------')
-    for output in range(Ny):
-        meanF     = np.mean(Y[:, output])
-        lb        = -np.inf * np.ones(num_hyp)
-        ub        = np.inf * np.ones(num_hyp)
-        # Changed 12.12.21 for contact variance
-        lb[:Nx]    = 1e-2 # 1.2e-1 # length scale
-        ub[:Nx]    = 1e-1 # 1.5e0 
-        lb[Nx]     = 1e-1 # 1   # sf (not sqare)
-        ub[Nx]     = 8.5  # 7.5
-        lb[Nx + 1] = 1.0  # 1.5 # sn (not squared)
-        ub[Nx + 1] = 3.75  # 3.5
 
-        if hyper_init is None:
-#            hyp_init = pyDOE.lhs(num_hyp, samples=1).flatten()
-            hyp_init = np.zeros((num_hyp))
-            hyp_init[:Nx] = np.std(X, 0)
-            hyp_init[Nx] = np.std(Y[:, output])
-            hyp_init[Nx + 1] = 1e-1
-#            hyp_init = hyp_init * (ub - lb) + lb
-        else:
-            hyp_init = hyper_init[output, :]
+    lbx       = - 3 * np.ones(num_hyp)
+    ubx       =   3 * np.ones(num_hyp)
+    # Changed 12.12.21 for contact variance
+    #lb[:Nx]    = 1e-2 # 1.2e-1 # length scale
+    #ub[:Nx]    = 1e-1 # 1.5e0 
+    #lb[Nx]     = 1e-1 # 1   # sf (not sqare)
+    #ub[Nx]     = 8.5  # 7.5
+    #lb[Nx + 1] = 1.0  # 1.5 # sn (not squared)
+    #ub[Nx + 1] = 3.75  # 3.5
 
-        if meanFunc is 'const':
-            lb[-1] = -1e2
-            ub[-1] = 1e2
-        elif meanFunc is not 'zero':
-            lb[-1] = meanF / 10 -1e-8
-            ub[-1] = meanF * 10 + 1e-8
-            lb[-h_m:-1] = -1e-2
-            ub[-h_m:-1] = 1e-2
+    solve_time = -time.time()
+    res = solver(x0=np.zeros(num_hyp), lbx=lbx, ubx=ubx)
+    status = solver.stats()['return_status']
+    obj              = res['f']
+    solve_time += time.time()
 
-        squaredist = np.zeros((N, N * Nx))
-        for i in range(Nx):
-            d = distance.pdist(X[:, i].reshape(N, 1), 'sqeuclidean')
-            squaredist[:, (i * N):(i + 1) * N] = distance.squareform(d)
-        param = ca.horzcat(squaredist, Y[:, output])
+    hyper_opt = {}
+    already_read = 0
+    for param in param_list:
+        param_size = hyper_total[param].shape[0]*hyper_total[param].shape[1]
+        hyper_opt[param] = res['x'][already_read:already_read+param_size].reshape(hyper_total[param].shape)
 
-        obj = np.zeros((multistart, 1))
-        hyp_opt_loc = np.zeros((multistart, num_hyp))
-        lam_x_opt_loc = np.zeros((multistart, num_hyp))
+    print("* State %s - %f sec" % (status, solve_time))
+    print("Delta params: {}".format(hyper_opt))
 
-        for i in range(multistart):
-            solve_time = -time.time()
-            if warm_start:
-                res = Solver(x0=hyp_init, lam_x0=lam_x0[output],
-                                   lbx=lb, ubx=ub, p=param)
-            else:
-                res =  Solver(x0=hyp_init, lbx=lb, ubx=ub, p=param)
-            status = Solver.stats()['return_status']
-            obj[i]              = res['f']
-            hyp_opt_loc[i, :]   = res['x']
-            lam_x_opt_loc       = res['lam_x']
-            solve_time += time.time()
-            print("* State %d: %s - %f s" % (output, status, solve_time))
+    for param in param_list:
+        hyper_opt[param] += hyper_init[param]
 
-        # With multistart, get solution with lowest decision function value
-        hyp_opt[output, :]   = hyp_opt_loc[np.argmin(obj)]
-        lam_x_opt[output, :] = lam_x_opt_loc[np.argmin(obj)]
-        ell = hyp_opt[output, :Nx]
-        sf2 = hyp_opt[output, Nx]**2
-        sn2 = hyp_opt[output, Nx + 1]**2
-
-        # Calculate the inverse covariance matrix
-        K = np.zeros((N, N))
-        for i in range(Nx):
-            K = squaredist[:, (i  * N):(i + 1) * N] / ell[i]**2 + K
-        K = sf2 * np.exp(-.5 * K)
-        K = K + sn2 * np.eye(N)     # Add noise variance to diagonal
-        K = (K + K.T) * 0.5         # Make sure matrix is symmentric
-        try:
-            L = np.linalg.cholesky(K).astype(np.single)
-        except np.linalg.LinAlgError:
-            print("K matrix is not positive definit, adding jitter!")
-            K = K + np.eye(N) * 1e-8
-            L = np.linalg.cholesky(K).astype(np.single)
-        invL = np.linalg.solve(L, np.eye(N))
-        invK[output, :, :] = np.linalg.solve(L.T, invL).astype(np.single)
-        chol[output] = L
-        m = get_mean_function(ca.MX(hyp_opt[output, :]), X.T, func=meanFunc)
-        mean = np.array(m(X.T)).reshape((N,))
-        alpha[output] = np.linalg.solve(L.T, np.linalg.solve(L, Y[:, output] - mean)).astype(np.single)
-    print('----------------------------------------')
-
-    opt = {}
-    opt['hyper'] = hyp_opt
-    opt['lam_x'] = lam_x_opt
-    opt['invK'] = invK
-    opt['alpha'] = alpha
-    opt['chol'] = chol
-    return opt
+    return hyper_opt
 
 
 

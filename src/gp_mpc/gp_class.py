@@ -8,12 +8,13 @@ from __future__ import (absolute_import, division, print_function)
 
 import numpy as np
 import casadi as ca
-from .gp_functions import build_gp, build_TA_cov, build_mean_func, build_const_matrices
+from .gp_functions import build_gp, build_TA_cov, build_mean_func, build_matrices
 from .gp_functions import normalize, inv_normalize
+from .optimize import train_gp
 
 
 class GP:
-    def __init__(self, X, Y, hyper, mean_func="zero",
+    def __init__(self, X, Y, hyper, opt_hyper = False, mean_func="zero",
                  gp_method="ME", normalize=False, fast_axis = 0 ):
         """ Initialize a GP model.
         # Arguments:
@@ -33,6 +34,8 @@ class GP:
         self.__fast_axis = fast_axis
 
         self.init_data(X, Y)
+
+        self.train_model(opt_hyper = opt_hyper)
 
         self.build_model()
 
@@ -57,13 +60,16 @@ class GP:
             self.__Y = normalize(Y, self.__meanY, self.__stdY)
             print("Normalizing y \n  mean: {} \n   std: {}".format(self.__meanY, self.__stdY))
 
+    def train_model(self, opt_hyper):
+        if opt_hyper: self.__hyper = train_gp(self.__X, self.__Y, self.__hyper, mean_func = self.__mean_func)
+
     def build_model(self):
         """
         Calculate cholesky covariance matrix, alpha, inverse covariance, and build
         the GP mean/var functions
         """
         self.__alpha, self.__chol, self.__invK = \
-            build_const_matrices(self.__X, self.__Y, self.__hyper, self.__mean_func)
+            build_matrices(self.__X, self.__Y, self.__hyper, self.__mean_func)
 
         self.__mean, self.__var,  self.__mean_jac, self.__var_red = \
                             build_gp(self.__invK, self.__X, self.__hyper,
@@ -123,10 +129,10 @@ class GP:
         if X is None and Y is None:
             for out in range(self.__Ny):
                 lik = 0
-                L = ca.SX(self.__chol[out,:,:])
-                lik += -0.5*self.__Y[:,out]@self.__alpha[out,:]
+                L = ca.SX(self.__chol[out])
+                lik += -0.5*self.__Y[:,out]@self.__alpha[out]
                 for n in range(self.__N):
-                    lik += -ca.log(self.__chol[out,n,n])
+                    lik += -ca.log(self.__chol[out][n,n])
                 liks.append(lik)
         return liks
 

@@ -14,15 +14,17 @@ from builtins import (
 import numpy as np
 import casadi as ca
 
-def covSEard_fn(ell, sf2):
-    D = ell.shape[0]
+def covSEard_fn(D):
+    ell = ca.SX.sym('ell', D, 1)
+    sf2 = ca.SX.sym('sf2', 1, 1)
+
     x = ca.SX.sym('x', D, 1)
     z = ca.SX.sym('z', D, 1)
-    func = ca.Function('cov', [x, z], [sf2 * ca.SX.exp(-0.5 * ca.sum1((x-z)**2 / ell**2))])
+    func = ca.Function('cov', [ell, sf2, x, z], [sf2 * ca.SX.exp(-0.5 * ca.sum1((x-z)**2 / ell**2))])
     return func
 
-def build_mean_func(X, mean_hyper = [], mean_func='zero'):
-    """ Get mean function
+def build_mean_func(X, hyper = None, mean_func='zero', Ny = 1):
+    """ Get mean functions
         Copyright (c) 2018, Helge-André Langåker
 
     # Arguments:
@@ -37,15 +39,15 @@ def build_mean_func(X, mean_hyper = [], mean_func='zero'):
          CasADi mean function [m(X, hyper)]
     """
 
-    Nx, N = X.shape
-    X_s = ca.SX.sym('x', Nx, N)
-    Z_s = ca.SX.sym('x', Nx, N)
-    m = ca.SX(N, 1)
-    hyp_s = ca.SX.sym('hyper', *np.array(mean_hyper).shape)
+    N, Nx = X.shape
+    X_s = ca.SX.sym('x', N, Nx)
+    Z_s = ca.SX.sym('x', N, Nx)
+    m = ca.SX(N, Ny)
+    mean_hyper = []
     if mean_func == 'zero':
-        meanF = ca.Function('zero_mean', [X_s, hyp_s], [m])
+        meanF = ca.Function('zero_mean', [X_s, mean_hyper], [m])
     elif mean_func == 'const':
-        a =  hyp_s[-1]
+        a =  hyper['mean']
         for i in range(N):
             m[i] = a
         meanF = ca.Function('const_mean', [X_s, hyp_s], [m])
@@ -65,7 +67,7 @@ def build_mean_func(X, mean_hyper = [], mean_func='zero'):
     else:
         raise NameError('No mean function called: ' + func)
 
-    return ca.Function('mean', [Z_s], [meanF(Z_s, mean_hyper)])
+    return ca.Function('mean', [Z_s], [m])
 
 def build_gp(invK, X, hyper, alpha, chol, fast_gp_axis, mean_func='zero', jit_opts = {}):
     """ Build Gaussian Process function optimized for comp. graph and speed
@@ -80,7 +82,7 @@ def build_gp(invK, X, hyper, alpha, chol, fast_gp_axis, mean_func='zero', jit_op
         X: Training data matrix with inputs of size (N x Nx), with Nx number of
             inputs to the GP.
         alpha: Training data matrix with invK time outputs of size (Ny x N).
-        hyper: Array with hyperparame|ters [ell_1 .. ell_Nx sf sn]
+        hyper: Dictionary with hyperparame|ters [ell_1 .. ell_Nx sf sn]
                These are now constants, not symbolics
     # Returns
         mean:     GP mean casadi function [mean(z)]
@@ -90,21 +92,21 @@ def build_gp(invK, X, hyper, alpha, chol, fast_gp_axis, mean_func='zero', jit_op
     """
     Ny = len(invK)
     N = X.shape[0]
-    Nx = X.shape[1]
+    D = X.shape[1]
 
     mean  = ca.SX.zeros(Ny, 1)
     var   = ca.SX.zeros(Ny, 1)
-    z_s   = ca.SX.sym('z', Nx)    # test data state
+    z_s   = ca.SX.sym('z', D)    # test data state
 
     for output in range(Ny):
         ell      = hyper['length_scale'][output]
         sf2      = hyper['signal_var'][output]
         sn2      = hyper['noise_var'][output]
         alpha_a  = alpha[output]
-        covSE =  covSEard_fn(ell, sf2)
-
-        ks_func  = covSE
-        ks       = ks_func(X.T, z_s)
+        #covSE =  covSEard_fn(ell, sf2, D)
+        #ks       = covSE(X.T, z_s)
+        covSE = covSEard_fn(D)
+        ks       = covSE(ell, sf2, X.T, z_s)
         v        = ca.solve(chol[output], ks.T)
         mean[output] = ks@alpha_a
         var[output]  = sn2 + sf2 - ca.mtimes(v.T, v)
@@ -138,39 +140,48 @@ def build_TA_cov(mean, covar, jac, Nx, Ny):
 
     return cov
 
-def build_const_matrices(X, Y, hyper, mean_func):
+def build_matrices(X, Y, hyper, mean_func):
         N, D = X.shape
         Ny = Y.shape[1]
 
-        invK  = np.zeros((Ny, N , N ))
-        K     = np.zeros((N, N ))
-        alpha = np.zeros((Ny, N ))
-        chol  = np.zeros((Ny, N , N ))
+        invK  = []
+        K     = ca.SX.zeros((N, N ))
+        alpha = []
+        chol  = []
+
+        m = build_mean_func(X, mean_func = mean_func, Ny = Ny)
+        mean = m(X)
 
         for output in range(Ny):
-            ell = hyper['length_scale'][output]
+            ell = hyper['length_scale'][output,:]
             sf2 = hyper['signal_var'][output]
             sn2 = hyper['noise_var'][output]
-
-            K_fn =  covSEard_fn(ell, sf2)
-            for i in range(X.shape[0]):
-                K[i, :] = K_fn(X.T, X[i,:])
+            #K_fn =  covSEard_fn(ell.T, sf2, D)
+            K_fn =  covSEard_fn(D)
+            for i in range(N):
+                K[i, :] = K_fn(ell, sf2, X.T, X[i,:])
             K    = K + sn2 * np.eye(N)
             K    = (K + K.T) * 0.5   # Make sure matrix is symmentric
 
             try:
-                L = np.linalg.cholesky(K)
-            except np.linalg.LinAlgError:
-                print("K matrix is not positive definite, adding jitter!")
+                L = ca.chol(K)
+            except:
+                print("K matrix is possibly not positive definite, adding jitter!")
                 K = K + np.eye(N) * 1e-8
                 L = np.linalg.cholesky(K)
 
-            invL = np.linalg.solve(L, np.eye(N))
-            invK[output, :, :] = np.linalg.solve(L.T, invL)
-            chol[output] = L
-            m = build_mean_func(X.T, mean_func = mean_func)
-            mean = np.array(m(X.T)).reshape((N,))
-            alpha[output] = np.linalg.solve(L.T, np.linalg.solve(L, Y[:, output] - mean))
+            invL = ca.inv(L)
+            invK.append(ca.solve(L.T, invL))
+            chol.append(L)
+
+            alpha.append(ca.solve(L.T, ca.solve(L, Y[:, output] - mean[:, output])))
+
+        # Convert to np arrays if the matrices are constants
+        invK  = [ca.DM(mat).full() if mat.is_constant() else mat for mat in invK]
+        chol  = [ca.DM(mat).full() if mat.is_constant() else mat for mat in chol]
+        alpha = [ca.DM(mat).full() if mat.is_constant() else mat for mat in alpha]
+
+
         return alpha, chol, invK
 
 def normalize(Y, mean, std):

@@ -12,10 +12,9 @@ from os.path import isfile
 import pickle
 
 # Custom classes
-#from .mode_inference import mode_detector
-from .gp_mpc.gp_class import GP
-from .gp_sparse import gp_sparse
-from .helper_fns import msg_to_state, msg_to_obs, force_comp_to_world
+from gp_mpc import GP
+from gp_sparse import gp_sparse
+from helper_fns import msg_to_state, msg_to_obs, force_comp_to_world
 
 class gp_model():
     '''
@@ -38,19 +37,18 @@ class gp_model():
             print('Sparse GPs: ensuring baseline points is at least 500')
             self.gp_params['num_model_points'] = max(self.gp_params['num_model_points'],500)
 
-        if not self.gp_params['opt_hyper']: # if opt hyper these hyper params are null
-            g_p = self.gp_params['hyper']
-            g_p['length_scale'] *= np.ones((self.state_dim, 3))
-            g_p['signal_var'] *= np.ones((3,1))
-            g_p['noise_var'] *= np.ones((3,1))
-            g_p['mean'] *= np.ones((self.state_dim,1))
-            if self.rotation:
-                g_p['length_scale'] = np.append(g_p['length_scale'],\
-                        np.full((self.state_dim, 3), self.gp_params['hyper_rot']['length_scale']),1)
-                g_p['signal_var'] = np.append(g_p['signal_var'],\
-                        np.full((3,1), self.gp_params['hyper_rot']['signal_var']),0)
-                g_p['noise_var'] = np.append(g_p['noise_var'],\
-                        np.full((3,1), self.gp_params['hyper_rot']['noise_var']),0)
+        g_p = self.gp_params['hyper']
+        g_p['length_scale'] *= np.ones((self.state_dim, 3))
+        g_p['signal_var'] *= np.ones((3,1))
+        g_p['noise_var'] *= np.ones((3,1))
+        g_p['mean'] *= np.ones((self.state_dim,1))
+        if self.rotation:
+            g_p['length_scale'] = np.append(g_p['length_scale'],\
+                    np.full((self.state_dim, 3), self.gp_params['hyper_rot']['length_scale']),1)
+            g_p['signal_var'] = np.append(g_p['signal_var'],\
+                    np.full((3,1), self.gp_params['hyper_rot']['signal_var']),0)
+            g_p['noise_var'] = np.append(g_p['noise_var'],\
+                    np.full((3,1), self.gp_params['hyper_rot']['noise_var']),0)
 
     def load_models(self, try_reload = True):
         if try_reload and isfile(self.gp_params['model_path']):
@@ -130,6 +128,7 @@ class gp_model():
         self.models[mode] = GP(self.state[mode][:,:self.state_dim],
                                self.obs[mode][:, :self.state_dim],
                                hyper = self.gp_params['hyper'],
+                               opt_hyper = self.gp_params['opt_hyper'],
                                normalize = False,
                                gp_method = self.gp_params['gp_method'],
                                fast_axis = self.gp_params['simplify_cov_axis'])

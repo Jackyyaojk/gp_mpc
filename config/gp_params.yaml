@@ -19,6 +19,7 @@ hyper:                # Following Rasmussen2006
   noise_var: 12.5     # \sigma_n^2 
   signal_var: 10.25   # \sigma_f^2
   mean: 0.0
+
 hyper_rot:
   length_scale: 0.20
   noise_var: 14.0
@@ -33,7 +34,7 @@ trim_workspace: 1.0 #0.43   # Data with z value higher than this are removed
 
 obs_noise: 0.1 # covariance of noise added to the observations
 
-opt_hyper: false
+opt_hyper: true
 opt_numeric: false
 print_hyper: false
 plot: false
