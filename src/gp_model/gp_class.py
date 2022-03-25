@@ -10,11 +10,12 @@ import numpy as np
 import casadi as ca
 from .gp_functions import build_gp, build_TA_cov, build_mean_func, build_matrices
 from .gp_optimize import train_gp
-
+from decision_vars import decision_var_set
 
 class GP:
     def __init__(self, X, Y,
                  hyper, opt_hyper = False,
+                 hyper_ub = {}, hyper_lb = {},
                  mean_func = "zero",
                  gp_method="ME", fast_axis = 0 ):
         """ Initialize a GP model.
@@ -28,8 +29,7 @@ class GP:
                ... and any hypperparams used by the mean function
         """
         self.dtype = np.single
-
-        self.__hyper = hyper
+        self.__hyper = decision_var_set(x0 = hyper, lb = hyper_lb, ub = hyper_ub) # fancy dict wrapper to make opt easier
         self.__gp_method = gp_method
         self.__mean_func = mean_func
         self.__fast_axis = fast_axis

@@ -31,7 +31,7 @@ class MPC:
         self.__constraint_slack = mpc_params['constraint_slack']
         self.__precomp = mpc_params['precomp']
 
-        self.options = yaml_load('config/ipopt_params.yaml')
+        self.options = yaml_load('config/', 'ipopt_params.yaml')
         #jit_options = {"flags": ["-Os"], "verbose": True}
         #options = {"jit": True, "compiler": "shell", "jit_options": jit_options}
         #self.options.update(options)

@@ -9,7 +9,7 @@ from __future__ import (absolute_import, division, print_function)
 import time
 import numpy as np
 import casadi as ca
-from .gp_functions import build_mean_func, build_matrices, get_mean_func_hypers
+from .gp_functions import build_mean_func, build_matrices
 from decision_vars import decision_var_set
 
 def calc_NLL(hyper, X, Y, mean_func='zero'):
@@ -31,15 +31,15 @@ def calc_NLL(hyper, X, Y, mean_func='zero'):
     m = build_mean_func(X.shape[0], X.shape[1], Y.shape[1], hyper = hyper, mean_func = mean_func)
     alphas, Ls, invKs = build_matrices(X, Y, hyper, mean_func = mean_func)
     NLL  = 0
-    mean = m(X, get_mean_func_hypers(hyper, mean_func))
+
+    mean_params = hyper.filter(to_ignore = ['length_scale', 'noise_var', 'signal_var'])
+    mean = m(X, *mean_params) # get the value of mean fn at X
     for i, (alpha, L, invK) in enumerate(zip(alphas, Ls, invKs)): 
         NLL += 0.5 * (Y[:,i]-mean[:,i]).T@alpha
-        NLL += 1 * ca.sum1(ca.SX.log(ca.diag(L)))
-        #NLL += (Y[:,i]-mean[:,i]).T@invK@(Y[:,i]-mean[:,i])
-
+        NLL += ca.sum1(ca.SX.log(ca.diag(L)))
     return NLL
 
-def train_gp(X, Y, hyper_init, mean_func='zero', opts={}):
+def train_gp(X, Y, hyper, mean_func='zero', opts={}):
     """ Train hyperparameters using IPOPT
 
     # Arguments:
@@ -61,19 +61,15 @@ def train_gp(X, Y, hyper_init, mean_func='zero', opts={}):
     N, Nx = X.shape
     Ny = Y.shape[1]
 
-    hyper_lb = {p:0.01 for p in ('length_scale', 'noise_var', 'signal_var')}
-    hyper_ub = {'length_scale':1.0, 'noise_var':20.0, 'signal_var':20.0}
-    dec_vars = decision_var_set(x0 = hyper_init, lb = hyper_lb, ub = hyper_ub)
-
     # Create solver
-    loss = calc_NLL(dec_vars, X, Y, mean_func = mean_func)
+    loss = calc_NLL(hyper, X, Y, mean_func = mean_func)
 
     # Penalize the deviation in length scale
-    loss += 3*ca.sumsqr(dec_vars.get_deviation('length_scale'))
-    loss += ca.sumsqr(dec_vars.get_deviation('noise_var'))
-    loss += ca.sumsqr(dec_vars.get_deviation('signal_var'))
+    loss += 3*ca.sumsqr(hyper.get_deviation('length_scale'))
+    loss += 3*ca.sumsqr(hyper.get_deviation('noise_var'))
+    loss += 3*ca.sumsqr(hyper.get_deviation('signal_var'))
 
-    x, lbx, ubx = dec_vars.get_dec_vectors()
+    x, lbx, ubx = hyper.get_dec_vectors()
 
     nlp = {'x': x, 'f': loss}
 
@@ -95,17 +91,17 @@ def train_gp(X, Y, hyper_init, mean_func='zero', opts={}):
     print('----------------------------------------')
 
     solve_time = -time.time()
-    res = solver(x0=dec_vars.get_x0(), lbx=lbx, ubx=ubx)
+    res = solver(x0=hyper.get_x0(), lbx=lbx, ubx=ubx)
     status = solver.stats()['return_status']
     obj = res['f']
-    hyper_opt = dec_vars.set_results(res['x'])
+    hyper.set_results(res['x'])
     solve_time += time.time()
 
     print("* State %s - %f sec" % (status, solve_time))
     print("Final objective {}".format(obj))
-    print(dec_vars)
+    print(hyper)
 
-    return hyper_opt
+    return hyper
 
 def validate(X_test, Y_test, X, Y, invK, hyper, meanFunc, alpha=None):
     """ Validate GP model with new test data

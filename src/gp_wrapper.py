@@ -19,7 +19,7 @@ class gp_model():
     '''
     This class wraps the GP class from gp_model adding modes, data loading, and plotting
     '''
-    def __init__(self, gp_params, rotation = False, try_reuse_gp = True):
+    def __init__(self, gp_params, rotation = False):
         self.rotation = rotation
         self.state_dim = 3+3*rotation
 
@@ -40,7 +40,6 @@ class gp_model():
         g_p['length_scale'] *= np.ones((self.state_dim, 3))
         g_p['signal_var'] *= np.ones((3,1))
         g_p['noise_var'] *= np.ones((3,1))
-        g_p['mean'] *= np.ones((self.state_dim,1))
         if self.rotation:
             g_p['length_scale'] = np.append(g_p['length_scale'],\
                     np.full((self.state_dim, 3), self.gp_params['hyper_rot']['length_scale']),1)
@@ -55,13 +54,20 @@ class gp_model():
         if self.gp_params['mean_func'] in ('hinge'):
             g_p['hinge_position'] = np.zeros(self.state_dim)
 
-    def load_models(self, try_reload = True):
-        if try_reload and isfile(self.gp_params['model_path']):
+        # Set bounds on hyperparams if optimizing
+        self.hyper_lb = {p:0.01 for p in ('length_scale', 'noise_var', 'signal_var')}
+        self.hyper_ub = {'length_scale':1.0, 'noise_var':28.0, 'signal_var':20.0}
+
+
+
+    def load_models(self, rebuild = True):
+        if not rebuild and isfile(self.gp_params['model_path']):
             with open(self.gp_params['model_path'], 'rb') as f:
                 self.models = pickle.load(f)
                 self.modes = list(self.models.keys())
                 print('Loaded models for {}'.format(self.modes))
         else:
+            print("Building new GP models")
             for mode in self.modes:
                 self.load_data(mode)
                 self.build_model(mode)
@@ -73,7 +79,7 @@ class gp_model():
 
     def load_data(self, mode):
         # Load rosbags
-        paths = self.gp_params['data_path'][mode]
+        paths = [self.gp_params['path']+fi for fi in self.gp_params['data_path'][mode]]
         print("Loading mode {} with {}".format(mode, paths))
         trimmed_msgs = self.load_bags(paths)
 
@@ -134,6 +140,8 @@ class gp_model():
                                self.obs[mode][:, :self.state_dim],
                                hyper = self.gp_params['hyper'],
                                opt_hyper = self.gp_params['opt_hyper'],
+                               hyper_lb = self.hyper_lb,
+                               hyper_ub = self.hyper_ub,
                                gp_method = self.gp_params['gp_method'],
                                fast_axis = self.gp_params['simplify_cov_axis'],
                                mean_func = self.gp_params['mean_func'])

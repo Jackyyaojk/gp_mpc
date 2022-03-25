@@ -1,13 +1,4 @@
 data_path:
-  #no_var: !!set
-  #   man_01.bag: null
-  #   mix_1.bag: null
-  #   auto_01.bag: null
-  #var: !!set
-  #  man_21.bag: null
-  #  mix_2.bag: null
-  #  auto_01.bag: null
-  #  auto_21.bag: null
   rail: !!set
     1.bag: null
     2.bag: null
@@ -20,6 +11,7 @@ hyper:                # Following Rasmussen2006
   length_scale: 0.10   # \ell 
   noise_var: 12.5     # \sigma_n^2 
   signal_var: 0.25   # \sigma_f^2
+
 
 hyper_rot:
   length_scale: 0.20

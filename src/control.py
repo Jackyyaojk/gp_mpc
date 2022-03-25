@@ -24,11 +24,12 @@ class mpc_impedance_control():
     This class produces commands to change the impedance of a robot according to
     a model of the environment/human and some control policy
     '''
-    def __init__(self, path='', try_reuse_gp=True):
+    def __init__(self, path='', rebuild_gp=True):
         # Loading config files
         self.mpc_params = yaml_load(path, 'mpc_params.yaml')
         self.mode_detector_params = yaml_load(path, 'mode_detector_params.yaml')
         self.gp_params = yaml_load(path, 'gp_params.yaml')
+        self.gp_params['path'] = path
 
         self.rotation = self.mpc_params['enable_rotation']
         self.state_dim = 3 if not self.rotation else 6  # range of state
@@ -38,7 +39,7 @@ class mpc_impedance_control():
 
         # Set up or load gp models
         self.gp_models = gp_model(self.gp_params, rotation = self.rotation)
-        self.models, self.modes = self.gp_models.load_models()
+        self.models, self.modes = self.gp_models.load_models(rebuild = rebuild_gp)
 
         self.mode_detector = mode_detector(self.modes, self.models,
                                            params = self.mode_detector_params)
@@ -297,12 +298,13 @@ class mpc_impedance_control():
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument("data_root", help="Root folder for data & config")
-    parser.add_argument("try_reuse_gp", help="Try to re-use the Gaussian process")
+    parser.add_argument("--path", default="data/rail/", help="Root folder for data & config")
+    parser.add_argument("--rebuild_gp", default=False, action='store_true',
+                        help="Force a new Gaussian process to build")
     args = parser.parse_args()
 
     rospy.init_node('mpc_impedance_control')
-    node = mpc_impedance_control(data_root = args.data_root, try_reuse_gp = args.try_reuse_gp)
+    node = mpc_impedance_control(path = args.path, rebuild_gp = args.rebuild_gp)
 
     # Set shutdown to be executed when ROS exits
     rospy.on_shutdown(node.shutdown)

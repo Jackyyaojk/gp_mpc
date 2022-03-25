@@ -24,16 +24,6 @@ def covSEard_fn(D):
     func = ca.Function('cov', [ell, sf2, x, z], [sf2 * ca.SX.exp(-0.5 * ca.sum1((x-z)**2 / ell**2))])
     return func
 
-def get_mean_func_hypers(hyper, mean_func):
-    mean_hyper_params = []
-    if mean_func == 'const':
-        mean_hyper_params = [hyper[par] for par in ('mean') if hyper[par].is_symbolic()]
-    elif mean_func == 'linear':
-        mean_hyper_params = [hyper[par] for par in ('mean', 'linear') if hyper[par].is_symbolic()]
-    elif mean_func == 'hinge':
-        mean_hyper_params = [hyper[par] for par in ('mean', 'linear', 'hinge') if hyper[par].is_symbolic()]
-    return ca.vertcat(*mean_hyper_params)
-
 def build_mean_func(N, Nx, Ny, hyper, mean_func='zero'):
     """ Get mean functions
         Copyright (c) 2018, Helge-André Langåker
@@ -49,7 +39,6 @@ def build_mean_func(N, Nx, Ny, hyper, mean_func='zero'):
     # Returns:
          CasADi mean function [m(X, hyper)]
     """
-
     X_s = ca.SX.sym('x', N, Nx)
     m = ca.SX(N,Ny)
 
@@ -65,11 +54,13 @@ def build_mean_func(N, Nx, Ny, hyper, mean_func='zero'):
     elif mean_func == 'hinge':
         for out in range(Ny):
             for n in range(N):
-                m[n,out] = ca.mtimes(hyper['linear'].T, ca.fmax(X_s[n,:].T, hyper['hinge']))+hyper['mean'][out]
+                m[n,out] = ca.mtimes(hyper['linear'].T, ca.fmax(X_s[n,:].T,hyper['hinge'])) \
+                               +hyper['mean'][out]
     else:
-        raise NameError('No mean function called: ' + func)
+        raise NameError('No mean function called: ' + mean_func)
 
-    return ca.Function('mean', [X_s, get_mean_func_hypers(hyper, mean_func)],[m])
+    sym_mean_params = hyper.filter(to_ignore = ['length_scale', 'noise_var', 'signal_var'])
+    return ca.Function('mean', [X_s, *sym_mean_params],[m])
 
 def build_gp(invK, X, hyper, alpha, chol, fast_gp_axis, mean_func='zero', jit_opts = {}):
     """ Build Gaussian Process function optimized for comp. graph and speed
@@ -109,7 +100,7 @@ def build_gp(invK, X, hyper, alpha, chol, fast_gp_axis, mean_func='zero', jit_op
         covSE = covSEard_fn(Nx)
         ks       = covSE(ell, sf2, X.T, z_s)
         v        = ca.solve(chol[output], ks.T)
-        mean[output] = ks@alpha_a+m(z_s, get_mean_func_hypers(hyper, mean_func))[output]
+        mean[output] = ks@alpha_a+m(z_s)[output]
         var[output]  = sn2 + sf2 - ca.mtimes(v.T, v)
     mean_func  = ca.Function('mean', [z_s], [mean], jit_opts)
     var_func = ca.Function('var', [z_s], [var], jit_opts)
@@ -151,7 +142,10 @@ def build_matrices(X, Y, hyper, mean_func):
         chol  = []
 
         m = build_mean_func(N, Nx, Ny, hyper, mean_func = mean_func)
-        mean = m(X, get_mean_func_hypers(hyper, mean_func))
+
+        mean_params = hyper.filter(to_ignore = ['length_scale', 'noise_var', 'signal_var'])
+        print(*mean_params.values())
+        mean = m(X, *mean_params.values())
 
         for output in range(Ny):
             ell = hyper['length_scale'][output,:]

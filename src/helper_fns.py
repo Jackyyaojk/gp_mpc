@@ -226,7 +226,7 @@ def yaml_load(path, fi, default_path = 'config/'):
         yaml_file = open(path+fi, 'r')
         print("File {} loaded from {}".format(fi, path))
     except FileNotFoundError:
-        print("File {} not found in {}\n -> loading default in {}".format(fi, path, default_path))
+        print("File {} not found in {} -> loading default in {}".format(fi, path, default_path))
         yaml_file = open(default_path+fi, 'r')
 
     yaml_content = yaml.load(yaml_file, Loader=yaml.UnsafeLoader)
