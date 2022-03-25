@@ -49,6 +49,12 @@ class gp_model():
                     np.full((3,1), self.gp_params['hyper_rot']['signal_var']),0)
             g_p['noise_var'] = np.append(g_p['noise_var'],\
                     np.full((3,1), self.gp_params['hyper_rot']['noise_var']),0)
+        if self.gp_params['mean_func'] in ('const', 'linear', 'hinge'):
+            g_p['mean'] = np.zeros(self.state_dim)
+        if self.gp_params['mean_func'] in ('linear', 'hinge'):
+            g_p['linear'] = np.zeros(self.state_dim)
+        if self.gp_params['mean_func'] in ('hinge'):
+            g_p['hinge_position'] = np.zeros(self.state_dim)
 
     def load_models(self, try_reload = True):
         if try_reload and isfile(self.gp_params['model_path']):
@@ -129,11 +135,12 @@ class gp_model():
                                self.obs[mode][:, :self.state_dim],
                                hyper = self.gp_params['hyper'],
                                opt_hyper = self.gp_params['opt_hyper'],
-                               normalize = False,
                                gp_method = self.gp_params['gp_method'],
-                               fast_axis = self.gp_params['simplify_cov_axis'])
+                               fast_axis = self.gp_params['simplify_cov_axis'],
+                               mean_func = self.gp_params['mean_func'])
         if(self.gp_params['print_hyper']): self.models[mode].print_hyper_parameters()
         print("Built model {} with data dim {}".format(mode, self.state[mode][:,:self.state_dim].shape))
+
     def validate_model(self, mode):
         if self.gp_params['plot']:
             self.plot_models()

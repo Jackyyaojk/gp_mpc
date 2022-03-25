@@ -47,6 +47,12 @@ class GPDynamics:
 
     def compliance_to_world(self, init_pose, x):
         # Translate x from being in init_pose frame to world frame.
+        #R = rotvec_to_rotation(init_pose[3:])
+        #x_w = R@x[:3]+init_pose[:3]
+        #if self.mpc_params['enable_rotation']:
+        #    x_w = ca.vertcat(x_w, R.T@x[3:])
+        #return x_w
+        # Old method!
         q0 = rotvec_to_quat(init_pose[3:])           # Initial robot orientation, quaternion
         x_w = quat_vec_mult(q0, x[:3])+init_pose[:3] # Linear position in world coords
         if self.mpc_params['enable_rotation']: 

@@ -6,7 +6,7 @@ import numpy as np
 import casadi as ca
 
 # Custom includes
-from gp_mpc import Model, GP
+from gp_mpc import GP
 from helper_fns import yaml_load, constraints
 
 class MPC:

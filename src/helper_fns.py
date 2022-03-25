@@ -11,6 +11,15 @@ def msg_to_obs(msg):
     return msg.effort[:6]
 
 ##############################################################################################################
+#### Welcome to the orientation zone ####
+#### Functions are grouped by the first representation in the argument list.
+
+
+def cross(a,b):
+    return ca.vertcat(a[1]*b[2]-a[2]*b[1],
+                      a[2]*b[0]-a[0]*b[2],
+                      a[0]*b[1]-a[1]*b[0])
+
 #### Rotation vectors ####
 
 def rotvec_to_rotation(vec):
@@ -43,6 +52,26 @@ def rotvec_to_quat(r):
                       ca.sin(th_2)*r[0]/norm_r,
                       ca.sin(th_2)*r[1]/norm_r,
                       ca.sin(th_2)*r[2]/norm_r)
+
+def rotvec_rotvec_mult(r1, r2):
+    a1 = ca.norm_2(r1)
+    a2 = ca.norm_2(r2)
+    diff = (a2-a1)/2.0
+    add  = (a2+a1)/2.0
+    r1 *= 1/a1
+    r2 *= 1/a2
+
+    a = 2*ca.acos((1-r1.T@r2)*ca.cos(diff)-(1+r1.T@r2)*ca.cos(add))
+    r = (ca.sin(add)+ca.sin(diff))*r1+(ca.sin(add)-ca.sin(diff))*r2+(ca.cos(diff)-ca.cos(add))*cross(r2,r1)
+    #a = 2*ca.acos(ca.cos(a2/2)*ca.cos(a1/2)-ca.sin(a2/2)*ca.sin(a1/2)*(r1.T@r2))
+    #r = ca.sin(a2/2)*ca.cos(a1/2)*r2+ca.sin(a1/2)*ca.cos(a2/2)*r1+ca.sin(a2/2)*ca.sin(a1/2)*cross(r2,r1)
+
+    return a*r/(ca.sin(a/2))
+
+def rotvec_vec_mult(r,v):
+    a = ca.norm_2(r)
+    r *= 1/a
+    return ca.cos(a)*v+ca.sin(a)*cross(r,v)+(1-ca.cos(a))*(r.T@v)*r
 
 #### ZYZ Euler angles ####
 # Convert to quaternion from intrinsic ZYZ euler angles

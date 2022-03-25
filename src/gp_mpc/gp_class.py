@@ -9,28 +9,29 @@ from __future__ import (absolute_import, division, print_function)
 import numpy as np
 import casadi as ca
 from .gp_functions import build_gp, build_TA_cov, build_mean_func, build_matrices
-from .gp_functions import normalize, inv_normalize
-from .optimize import train_gp
+from .gp_optimize import train_gp
 
 
 class GP:
-    def __init__(self, X, Y, hyper, opt_hyper = False, mean_func="zero",
-                 gp_method="ME", normalize=False, fast_axis = 0 ):
+    def __init__(self, X, Y,
+                 hyper, opt_hyper = False,
+                 mean_func = "zero",
+                 gp_method="ME", fast_axis = 0 ):
         """ Initialize a GP model.
         # Arguments:
             X: State data (N x Nx)
             Y: Observation data (N x Ny)
-            hyper: dictionary with hyperparams
+            hyper: dictionary with hyperparams, must include:
                length_scale: \ell (not squared)
                signal_var:   \sigma_f^2, i.e. directly used in kernel
                noise_var:    \sigma_n^2, i.e. directly used in kernel
+               ... and any hypperparams used by the mean function
         """
         self.dtype = np.single
 
         self.__hyper = hyper
         self.__gp_method = gp_method
         self.__mean_func = mean_func
-        self.__normalize = normalize
         self.__fast_axis = fast_axis
 
         self.init_data(X, Y)
@@ -49,17 +50,6 @@ class GP:
         self.__Nx = X.shape[1]
         self.__N = X.shape[0]
 
-        if self.__normalize:
-            self.__meanX = np.mean(self.__X, axis = 0)
-            self.__stdX  = np.std(self.__X, axis = 0)
-            self.__X = normalize(X, self.__meanX, self.__stdX)
-            print("Normalizing x \n  mean: {} \n   std: {}".format(self.__meanX, self.__stdX))
-
-            self.__meanY = np.mean(self.__Y, axis = 0)
-            self.__stdY  = np.std(self.__Y, axis = 0)
-            self.__Y = normalize(Y, self.__meanY, self.__stdY)
-            print("Normalizing y \n  mean: {} \n   std: {}".format(self.__meanY, self.__stdY))
-
     def train_model(self, opt_hyper):
         if opt_hyper: self.__hyper = train_gp(self.__X, self.__Y, self.__hyper, mean_func = self.__mean_func)
 
@@ -73,7 +63,8 @@ class GP:
 
         self.__mean, self.__var,  self.__mean_jac, self.__var_red = \
                             build_gp(self.__invK, self.__X, self.__hyper,
-                                     self.__alpha, self.__chol, self.__fast_axis)
+                                     self.__alpha, self.__chol,
+                                     self.__fast_axis, mean_func = self.__mean_func)
 
         self.set_method(self.__gp_method)
 
@@ -108,20 +99,9 @@ class GP:
             cov: Covariance matrix of input x
         """
         if fast: return self.predict_fast(x)
-        if self.__normalize:
-            x_s = normalize(x, self.__meanX, self.__stdX)
-        else:
-            x_s = x
-        mean, cov = self.__predict(x_s, cov)
-        if self.__normalize:
-            mean = inv_normalize(mean, self.__meanY, self.__stdY)
-            cov = cov*self.__stdY**2
-        return mean, cov
+        return self.__predict(x,cov)
 
     def predict_fast(self, x):
-        if self.__normalize:
-            print("Predict fast *only* for un-normalized models")
-            return
         return self.__mean(x), self.__var_red(x)
 
     def log_lik(self, X = None, Y = None):
@@ -140,35 +120,14 @@ class GP:
         return self.__mean_jac(x)
 
     def get_xrange(self):
-        if self.__normalize:
-            minx = inv_normalize(np.min(self.__X, axis=0), self.__meanX, self.__stdX)
-            maxx = inv_normalize(np.max(self.__X, axis=0), self.__meanX, self.__stdX)
-        else:
-            minx = np.min(self.__X, axis=0)
-            maxx = np.max(self.__X, axis=0)
+        minx = np.min(self.__X, axis=0)
+        maxx = np.max(self.__X, axis=0)
         return [minx, maxx]
 
     def get_mean_state(self):
         return np.mean(self.__X, axis = 0)
 
-    def get_hyper_parameters(self):
-        return self.__hyper
-
-    def set_hyper_parameters(self, hyper):
-        self.__hyper = hyper
-
-    def print_hyper_parameters(self):
-        """ Print out all hyperparameters """
-        print(self.__hyper)
-
-    def mean_jacobian(self, x0):
-        """ Jacobian of posterior mean """
-        return self.__mean_jac(x0)
-
     def get_data(self):
-        if self.__normalize:
-            return inv_normalize(self.__X, self.__meanX, self.__stdX), \
-                   inv_normalize(self.__Y, self.__meanY, self.__stdY)
         return self.__X, self.__Y
 
     def validate(self, X_test, Y_test):
