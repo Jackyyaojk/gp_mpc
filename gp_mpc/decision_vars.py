@@ -48,9 +48,8 @@ class decision_var_set:
         """
         assert version_info >= (3, 6), "Python 3.6 required to guarantee dicts are ordered"
         self.__ty = var_type
-        self.__vars = {}
-        self.__optimized = False
-        self.__x_opt = {}
+        self.__vars = {}   # Individual variables
+        self.__optimized = False # Flag if set_results has been called
 
         for key in x0.keys():
             self[key] = decision_var(x0[key],
@@ -72,10 +71,7 @@ class decision_var_set:
         If no results are set, returns the symbolic variable at key
         If results are set, returns the numeric value at key
         """
-        if not self.__optimized:
-            return self.__vars[key].x
-        else:
-            return self.__x_opt[key]
+        return self.__vars[key].x
 
     def __len__(self):
         return sum(len(val) for val in self.__vars.values())
@@ -86,18 +82,15 @@ class decision_var_set:
             s += "{}:\n: {}\n".format(key, self[key])
         return s
 
-    def filter(self, to_ignore = [], get_numerical = False):
+    def filter(self, to_ignore = [], ignore_numeric = False):
         """
-        Returns list the decision varaibles not in the to_ignore list.
-        Numerical values are returned if get_numerical is true
+        Returns the decision variables or optimized values not in the to_ignore list.
         """
         filtered_dict = {}
         for key in self.__keys:
             if key in to_ignore: continue
-            if get_numerical:
-                filtered_dict[key] = self.x_opt[key]
-            else:
-                filtered_dict[key] = self[key]
+            if ignore_numeric and (isinstance(self[key], np.ndarray) or not self[key].is_symbolic()): continue
+            filtered_dict[key] = self[key]
         return filtered_dict
 
     def vectorize(self, attr):
@@ -131,9 +124,10 @@ class decision_var_set:
         for key in self.__keys:
             v_size  = self.__vars[key].size
             v_shape = self.__vars[key].shape
-            self.__x_opt[key] = x_opt[read_pos:read_pos+v_size].reshape(v_shape)
+            self.__vars[key].x = x_opt[read_pos:read_pos+v_size].reshape(v_shape)
             read_pos += v_size
         self.__optimized = True
+
 
 
 

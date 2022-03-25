@@ -12,8 +12,8 @@ from os.path import isfile
 import pickle
 
 # Custom classes
-from gp_model import GP
-from helper_fns import msg_to_state, msg_to_obs, force_comp_to_world
+from .gp_model import GP
+from .helper_fns import msg_to_state, msg_to_obs, force_comp_to_world
 
 class gp_model():
     '''
@@ -58,8 +58,6 @@ class gp_model():
         self.hyper_lb = {p:0.01 for p in ('length_scale', 'noise_var', 'signal_var')}
         self.hyper_ub = {'length_scale':1.0, 'noise_var':28.0, 'signal_var':20.0}
 
-
-
     def load_models(self, rebuild = True):
         if not rebuild and isfile(self.gp_params['model_path']):
             with open(self.gp_params['model_path'], 'rb') as f:
@@ -71,15 +69,16 @@ class gp_model():
             for mode in self.modes:
                 self.load_data(mode)
                 self.build_model(mode)
+            for mode in self.modes:
                 self.validate_model(mode)
-                with open(self.gp_params['model_path'], 'wb') as f:
-                    pickle.dump(self.models, f)
+            with open(self.gp_params['model_path'], 'wb') as f:
+                pickle.dump(self.models, f)
 
         return self.models, self.modes
 
     def load_data(self, mode):
         # Load rosbags
-        paths = [self.gp_params['path']+fi for fi in self.gp_params['data_path'][mode]]
+        paths = sorted([self.gp_params['path']+fi for fi in self.gp_params['data_path'][mode]])
         print("Loading mode {} with {}".format(mode, paths))
         trimmed_msgs = self.load_bags(paths)
 

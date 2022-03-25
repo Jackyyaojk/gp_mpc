@@ -12,12 +12,12 @@ import rospy
 from sensor_msgs.msg import JointState
 from std_msgs.msg import Float64MultiArray
 
-# Custom classes
-from mode_inference import mode_detector
-from gp_wrapper import gp_model
-from gp_dynamics import GPDynamics
-from mpc import MPC
-from helper_fns import *
+# Custom classes -- need absolute import b/c of __main__ here.
+from gp_mpc.mode_inference import mode_detector
+from gp_mpc.gp_wrapper import gp_model
+from gp_mpc.gp_dynamics import GPDynamics
+from gp_mpc.mpc import MPC
+from gp_mpc.helper_fns import *
 
 class mpc_impedance_control():
     '''

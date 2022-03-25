@@ -6,8 +6,8 @@ import numpy as np
 import casadi as ca
 
 # Custom includes
-from gp_model import GP
-from helper_fns import yaml_load, constraints
+from .gp_model import GP
+from .helper_fns import yaml_load, constraints
 
 class MPC:
     def __init__(self, N_p, mpc_params, gp_dynamics_dict):

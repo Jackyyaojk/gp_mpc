@@ -6,11 +6,6 @@ Copyright (c) 2022, Kevin Haninger
 """
 from __future__ import (absolute_import, division,
                         print_function, unicode_literals)
-from builtins import (
-         bytes, dict, int, list, object, range, str,
-         ascii, chr, hex, input, next, oct, open,
-         pow, round, super,
-         filter, map, zip)
 
 import numpy as np
 import casadi as ca
@@ -24,7 +19,7 @@ def covSEard_fn(D):
     func = ca.Function('cov', [ell, sf2, x, z], [sf2 * ca.SX.exp(-0.5 * ca.sum1((x-z)**2 / ell**2))])
     return func
 
-def build_mean_func(N, Nx, Ny, hyper, mean_func='zero'):
+def build_mean_func(N, Nx, Ny, hyper, mean_func='zero', build_const = False):
     """ Get mean functions
         Copyright (c) 2018, Helge-André Langåker
 
@@ -46,7 +41,7 @@ def build_mean_func(N, Nx, Ny, hyper, mean_func='zero'):
         m = ca.SX.zeros(N,Ny)
     elif mean_func == 'const':
         for out in range(Ny):
-            m[:,i] = hyper['mean'][out]
+            m[:,out] = hyper['mean'][out]
     elif mean_func == 'linear':
         for out in range(Ny):
             for n in range(N):
@@ -59,15 +54,13 @@ def build_mean_func(N, Nx, Ny, hyper, mean_func='zero'):
     else:
         raise NameError('No mean function called: ' + mean_func)
 
-    sym_mean_params = hyper.filter(to_ignore = ['length_scale', 'noise_var', 'signal_var'])
-    return ca.Function('mean', [X_s, *sym_mean_params],[m])
+    sym_mean_params = hyper.filter(to_ignore = ['length_scale', 'noise_var', 'signal_var'], ignore_numeric = True)
+    return ca.Function('mean', [X_s, *sym_mean_params.values()],[m])
 
-def build_gp(invK, X, hyper, alpha, chol, fast_gp_axis, mean_func='zero', jit_opts = {}):
+def build_gp(invK, X, hyper, alpha, chol, fast_gp_axis, mean_func='zero', build_const = False, jit_opts = {}):
     """ Build Gaussian Process function optimized for comp. graph and speed
         - hyper are consts, not symbolics
         - alpha is a const, not symbolic
-        - 0 mean
-        Copyright (c) 2021, Kevin Haninger
 
     # Arguments
         invK: Array with the inverse covariance matrices of size (Ny x N x N),
@@ -132,7 +125,7 @@ def build_TA_cov(mean, covar, jac, Nx, Ny):
 
     return cov
 
-def build_matrices(X, Y, hyper, mean_func):
+def build_matrices(X, Y, hyper, mean_func, build_const = False):
         N, Nx = X.shape
         Ny = Y.shape[1]
 
@@ -141,10 +134,9 @@ def build_matrices(X, Y, hyper, mean_func):
         alpha = []
         chol  = []
 
-        m = build_mean_func(N, Nx, Ny, hyper, mean_func = mean_func)
+        m = build_mean_func(N, Nx, Ny, hyper, mean_func = mean_func, build_const = build_const)
 
-        mean_params = hyper.filter(to_ignore = ['length_scale', 'noise_var', 'signal_var'])
-        print(*mean_params.values())
+        mean_params = hyper.filter(to_ignore = ['length_scale', 'noise_var', 'signal_var'], ignore_numeric = build_const)
         mean = m(X, *mean_params.values())
 
         for output in range(Ny):

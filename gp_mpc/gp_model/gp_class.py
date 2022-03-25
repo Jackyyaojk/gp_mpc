@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 """
 Gaussian Process Model
-Copyright (c) 2018, Helge-André Langåker
-Revised 2021, Christian Hegeler & Kevin Haninger
+Copyright (c) 2018 Helge-André Langåker
+Revised 2021 Christian Hegeler & Kevin Haninger
 """
 from __future__ import (absolute_import, division, print_function)
 
@@ -10,7 +10,7 @@ import numpy as np
 import casadi as ca
 from .gp_functions import build_gp, build_TA_cov, build_mean_func, build_matrices
 from .gp_optimize import train_gp
-from decision_vars import decision_var_set
+from gp_mpc.decision_vars import decision_var_set
 
 class GP:
     def __init__(self, X, Y,
@@ -59,12 +59,12 @@ class GP:
         the GP mean/var functions
         """
         self.__alpha, self.__chol, self.__invK = \
-            build_matrices(self.__X, self.__Y, self.__hyper, self.__mean_func)
+            build_matrices(self.__X, self.__Y, self.__hyper, self.__mean_func, build_const = True)
 
         self.__mean, self.__var,  self.__mean_jac, self.__var_red = \
                             build_gp(self.__invK, self.__X, self.__hyper,
                                      self.__alpha, self.__chol,
-                                     self.__fast_axis, mean_func = self.__mean_func)
+                                     self.__fast_axis, mean_func = self.__mean_func, build_const = True)
 
         self.set_method(self.__gp_method)
 

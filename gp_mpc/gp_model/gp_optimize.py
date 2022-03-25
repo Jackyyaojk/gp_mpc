@@ -10,7 +10,6 @@ import time
 import numpy as np
 import casadi as ca
 from .gp_functions import build_mean_func, build_matrices
-from decision_vars import decision_var_set
 
 def calc_NLL(hyper, X, Y, mean_func='zero'):
     """ Calculate the negative log likelihood function using Casadi SX symbols.
@@ -33,8 +32,8 @@ def calc_NLL(hyper, X, Y, mean_func='zero'):
     NLL  = 0
 
     mean_params = hyper.filter(to_ignore = ['length_scale', 'noise_var', 'signal_var'])
-    mean = m(X, *mean_params) # get the value of mean fn at X
-    for i, (alpha, L, invK) in enumerate(zip(alphas, Ls, invKs)): 
+    mean = m(X, *mean_params.values()) # get the value of mean fn at X
+    for i, (alpha, L, invK) in enumerate(zip(alphas, Ls, invKs)):
         NLL += 0.5 * (Y[:,i]-mean[:,i]).T@alpha
         NLL += ca.sum1(ca.SX.log(ca.diag(L)))
     return NLL
