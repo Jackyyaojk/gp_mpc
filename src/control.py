@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 # Copyright (c) 2021 Kevin Haninger
 
 # Python libs
@@ -6,6 +5,7 @@ import time
 import numpy as np
 import matplotlib.pyplot as plt
 from copy import deepcopy
+import argparse
 
 # ROS imports
 import rospy
@@ -16,27 +16,22 @@ from std_msgs.msg import Float64MultiArray
 from mode_inference import mode_detector
 from gp_wrapper import gp_model
 from gp_dynamics import GPDynamics
-from MPC_GP3 import MPC
+from mpc import MPC
 from helper_fns import *
-
-# Evaluation
-import itertools
-
 
 class mpc_impedance_control():
     '''
     This class produces commands to change the impedance of a robot according to
     a model of the environment/human and some control policy
     '''
-    def __init__(self):
+    def __init__(self, path='', try_reuse_gp=True):
         # Loading config files
-        self.mpc_params = yaml_load('config/mpc_params.yaml')
-        self.mode_detector_params = yaml_load('config/mode_detector_params.yaml')
-        self.gp_params = yaml_load('config/gp_params.yaml')
+        self.mpc_params = yaml_load(path, 'mpc_params.yaml')
+        self.mode_detector_params = yaml_load(path, 'mode_detector_params.yaml')
+        self.gp_params = yaml_load(path, 'gp_params.yaml')
 
         self.rotation = self.mpc_params['enable_rotation']
         self.state_dim = 3 if not self.rotation else 6  # range of state
-        self.obs_dim   = 3 if not self.rotation else 6  # range of forces
 
         np.random.seed(0)
         np.set_printoptions(formatter={'float': '{: 6.2f}'.format})
@@ -44,6 +39,7 @@ class mpc_impedance_control():
         # Set up or load gp models
         self.gp_models = gp_model(self.gp_params, rotation = self.rotation)
         self.models, self.modes = self.gp_models.load_models()
+
         self.mode_detector = mode_detector(self.modes, self.models,
                                            params = self.mode_detector_params)
 
@@ -55,12 +51,12 @@ class mpc_impedance_control():
                                  'Fd': np.zeros(self.state_dim)}
 
         # Init Dynamic Modes
-        self.gp_dynamics_dict = { mode: GPDynamics(N_p = self.obs_dim,
+        self.gp_dynamics_dict = { mode: GPDynamics(N_p = self.state_dim,
                                                    mpc_params = self.mpc_params,
                                                    gp = self.models[mode] )\
                                   for mode in self.modes }
         # Init MPC
-        self.mpc = MPC( N_p = self.obs_dim,
+        self.mpc = MPC( N_p = self.state_dim,
                         mpc_params = self.mpc_params,
                         gp_dynamics_dict = self.gp_dynamics_dict )
 
@@ -92,7 +88,7 @@ class mpc_impedance_control():
         except:
             print("Error loading ROS message in update_state")
         if np.linalg.norm(self.obs[:3]) > self.mode_detector_params['min_force']:
-            bel_arr = self.mode_detector.update_belief(self.obs[:self.obs_dim], self.state[self.state_dim])
+            bel_arr = self.mode_detector.update_belief(self.obs[:self.state_dim], self.state[self.state_dim])
             if self.pub_belief:
                 msg_belief = Float64MultiArray(data = bel_arr)
                 self.pub_belief.publish(msg_belief)
@@ -118,13 +114,13 @@ class mpc_impedance_control():
                 prstr += mode + ':' + '{: 6.3f}'.format(self.mode_detector.bel[mode])+' | '
 
         if not rospy.is_shutdown():
-            des_force = np.zeros(self.obs_dim)
+            des_force = np.zeros(self.state_dim)
             if not send_zeros:
                 start = time.time()
                 u_opt_traj = self.mpc.solve(self.state, self.mode_detector.bel,
                                             self.impedance_params['M'], self.impedance_params['B'])
                 self.timelist.append((time.time() - start))
-                des_force = u_opt_traj[:self.obs_dim,0]
+                des_force = u_opt_traj[:self.state_dim,0]
 
                 if self.mpc_params['print_control']:
                     prstr += ' Fd  {} | '.format(des_force)
@@ -158,10 +154,10 @@ class mpc_impedance_control():
             msg_control.velocity = np.zeros(6)
             msg_control.effort = np.zeros(12)
             msg_control.header.stamp = rospy.Time.now()
-            des_force = 0.5*(des_force-self.impedance_params['Fd'][:self.obs_dim]) #to handle oscilation due to delay
-            msg_control.effort[6:6+self.obs_dim] = des_force
+            des_force = 0.5*(des_force-self.impedance_params['Fd'][:self.state_dim]) #to handle oscilation due to delay
+            msg_control.effort[6:6+self.state_dim] = des_force
             if des_damp is not None:
-                msg_control.velocity = 0.7*(des_damp - self.impedance_params['B'][:self.obs_dim])
+                msg_control.velocity = 0.7*(des_damp - self.impedance_params['B'][:self.state_dim])
             if d_damp is not None :
                 msg_control.velocity[:self.state_dim] = d_damp
             if d_mass is not None:
@@ -253,7 +249,7 @@ class mpc_impedance_control():
         self.robot_imp  = [ax.plot(0,0,0, color = 'k', linewidth=3)[0],
                            ax.plot(0,0,0, color = 'k', linewidth=3)[0],
                            ax.plot(0,0,0, color = 'k', linewidth=3)[0]]
-        
+
         if 'human_kin' in self.mpc_params:
            hc = self.mpc_params['human_kin']['center']
            self.human_shoulder = ax.plot(0,0,0, c = 'r', marker = 'o', ms = 10)[0]
@@ -300,8 +296,13 @@ class mpc_impedance_control():
             print("Cold Start: {}, Mean: {}, Min: {}, Max: {}".format(t_cold, t_mean, t_min, t_max))
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument("data_root", help="Root folder for data & config")
+    parser.add_argument("try_reuse_gp", help="Try to re-use the Gaussian process")
+    args = parser.parse_args()
+
     rospy.init_node('mpc_impedance_control')
-    node = mpc_impedance_control()
+    node = mpc_impedance_control(data_root = args.data_root, try_reuse_gp = args.try_reuse_gp)
 
     # Set shutdown to be executed when ROS exits
     rospy.on_shutdown(node.shutdown)

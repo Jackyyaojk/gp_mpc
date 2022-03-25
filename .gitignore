@@ -6,3 +6,4 @@ src/nlp.c
 *.pkl
 src/logs/*
 src/animation_frames/*
+*/.ipynb_checkpoints

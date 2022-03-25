@@ -17,9 +17,9 @@ from helper_fns import msg_to_state, msg_to_obs, force_comp_to_world
 
 class gp_model():
     '''
-    This class wraps the GP class from gp_mpc adding modes, data loading, and plotting
+    This class wraps the GP class from gp_model adding modes, data loading, and plotting
     '''
-    def __init__(self, gp_params, rotation = False, try_reload = True):
+    def __init__(self, gp_params, rotation = False, try_reuse_gp = True):
         self.rotation = rotation
         self.state_dim = 3+3*rotation
 

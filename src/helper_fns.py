@@ -221,8 +221,14 @@ def force_comp_to_world(rotvec, force_comp):
 
 ###############################################################################################
 
-def yaml_load(path):
-    yaml_file = open(path, 'r')
+def yaml_load(path, fi, default_path = 'config/'):
+    try:
+        yaml_file = open(path+fi, 'r')
+        print("File {} loaded from {}".format(fi, path))
+    except FileNotFoundError:
+        print("File {} not found in {}\n -> loading default in {}".format(fi, path, default_path))
+        yaml_file = open(default_path+fi, 'r')
+
     yaml_content = yaml.load(yaml_file, Loader=yaml.UnsafeLoader)
     local_list = []
     for key, value in yaml_content.items():

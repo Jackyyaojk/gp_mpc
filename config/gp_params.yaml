@@ -9,9 +9,9 @@ data_path:
   #  data/contact_var_auto/01.bag: null
   #  data/contact_var_auto/21.bag: null
   rail: !!set
-    data/rail/1.bag: null
-    data/rail/2.bag: null
-    data/rail/3.bag: null
+    1.bag: null
+    2.bag: null
+    3.bag: null
 gp_method: ME         # Input uncertainty method, ME = mean equiv, TA = taylor approx
 simplify_cov_axis: 2  # Which axis to use for the reduced cov, default 0
 
