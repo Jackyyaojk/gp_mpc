@@ -43,7 +43,7 @@ def build_mean_func(N, Nx, Ny, hyper, mean_func='zero'):
         X: Input vector or matrix.
         func: Option for mean function:
                 'zero':       m = 0
-                'const':      m = a
+                'const':      m = az
                 'linear':     m(x) = aT*x + b
                 'polynomial': m(x) = aT*x^2 + bT*x + c
     # Returns:

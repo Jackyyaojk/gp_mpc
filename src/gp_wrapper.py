@@ -12,8 +12,7 @@ from os.path import isfile
 import pickle
 
 # Custom classes
-from gp_mpc import GP
-from gp_sparse import gp_sparse
+from gp_model import GP
 from helper_fns import msg_to_state, msg_to_obs, force_comp_to_world
 
 class gp_model():

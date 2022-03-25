@@ -6,7 +6,7 @@ import numpy as np
 from copy import deepcopy
 
 from helper_fns import *
-from gp_mpc import GP
+from gp_model import GP
 
 class GPDynamics:
     '''

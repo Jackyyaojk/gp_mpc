@@ -1,7 +1,7 @@
 # Copyright (c) Kevin Haninger
 
 import numpy as np
-from gp_mpc import GP
+from gp_model import GP
 
 class mode_detector():
     '''

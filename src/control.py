@@ -14,7 +14,7 @@ from std_msgs.msg import Float64MultiArray
 
 # Custom classes
 from mode_inference import mode_detector
-from gp_model import gp_model
+from gp_wrapper import gp_model
 from gp_dynamics import GPDynamics
 from MPC_GP3 import MPC
 from helper_fns import *
@@ -82,9 +82,6 @@ class mpc_impedance_control():
         self.control_time = time.time()
         self.timelist = []
 
-        #self.gp_dynamics_dict[self.modes[0]].plot_exp_joint_effort()
-        #.opt_exp_joint_effort(np.array([0.9, 0, 0.4, 0, np.pi, 0]))
-
 
     # Callback function when state message recieved
     def update_state(self, msg):
@@ -113,6 +110,7 @@ class mpc_impedance_control():
 
     # Main control loop, update belief, do MPC calc, send out the updated params
     def control(self, send_zeros = False):
+        if not self.recieved_robot_state: return
         prstr = ''
         if self.mode_detector_params['print_belief']:
             prstr += 'Bel '
@@ -293,12 +291,13 @@ class mpc_impedance_control():
 
     # Time evaluation
     def get_results(self):
-        t_stats = np.array(self.timelist)
-        t_cold = t_stats[0]
-        t_mean = np.mean(t_stats[1:])
-        t_min = min(t_stats[1:])
-        t_max = max(t_stats[1:])
-        print("Cold Start: {}, Mean: {}, Min: {}, Max: {}".format(t_cold, t_mean, t_min, t_max))
+        if self.timelist:
+            t_stats = np.array(self.timelist)
+            t_cold = t_stats[0]
+            t_mean = np.mean(t_stats[1:])
+            t_min = min(t_stats[1:])
+            t_max = max(t_stats[1:])
+            print("Cold Start: {}, Mean: {}, Min: {}, Max: {}".format(t_cold, t_mean, t_min, t_max))
 
 if __name__ == '__main__':
     rospy.init_node('mpc_impedance_control')
@@ -307,10 +306,6 @@ if __name__ == '__main__':
     # Set shutdown to be executed when ROS exits
     rospy.on_shutdown(node.shutdown)
     rospy.sleep(1e-1) # Sleep so ROS can init
-
-    # hard to kill with ctrl-c
-    while not node.recieved_robot_state:
-        rospy.sleep(1e-2)
 
     while not rospy.is_shutdown():
         node.control()
