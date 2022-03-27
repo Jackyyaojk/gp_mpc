@@ -34,10 +34,10 @@ def bag_loader(path, map_and_append_msg, topic_name = 'robot_state', normalize =
         t_in_order, el_in_order = zip(*sorted(zip(t,msgs[key])))
         msgs_in_order[key] = np.array(el_in_order).T
     msgs_in_order['t'] = t_in_order
-    
+
     if normalize is not '':
         msgs_in_order[normalize] = (msgs_in_order[normalize].T-msgs_in_order[normlize][:,0]).T
-        
+
     return msgs_in_order
 
 def get_aligned_msgs(msgs1, msgs2):

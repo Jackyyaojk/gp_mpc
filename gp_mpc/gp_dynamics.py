@@ -81,8 +81,7 @@ class GPDynamics:
                 bn = ca.exp(-dt*imp_params[N_p+i]/imp_params[i])
 
             # Velocity first b/c that's needed for semi-implicit
-            x_next[i+N_p] =  bn*x[i+N_p]+dt/imp_params[i]*(-f_mu[i])+dt*u[i]/10.0 # -kn*x[i]
-                            #bn*x[i+N_p]+dt/imp_params[i]*(-f_mu[i]+u[i]) # -kn*x[i]
+            x_next[i+N_p] =  bn*x[i+N_p]+dt/imp_params[i]*(-f_mu[i]+u[i]) # -kn*x[i]
 
             # Position
             if self.mpc_params['integrator'] == 'explicit':
