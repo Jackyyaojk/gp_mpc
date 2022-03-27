@@ -296,15 +296,9 @@ class mpc_impedance_control():
             t_max = max(t_stats[1:])
             print("Cold Start: {}, Mean: {}, Min: {}, Max: {}".format(t_cold, t_mean, t_min, t_max))
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--path", default="data/rail/", help="Root folder for data & config")
-    parser.add_argument("--rebuild_gp", default=False, action='store_true',
-                        help="Force a new Gaussian process to build")
-    args = parser.parse_args()
-
+def start_node(path = '', rebuild_gp = False):
     rospy.init_node('mpc_impedance_control')
-    node = mpc_impedance_control(path = args.path, rebuild_gp = args.rebuild_gp)
+    node = mpc_impedance_control(path = path, rebuild_gp = rebuild_gp)
 
     # Set shutdown to be executed when ROS exits
     rospy.on_shutdown(node.shutdown)
@@ -315,3 +309,11 @@ if __name__ == '__main__':
         if node.mpc_params['live_plot'] or node.mpc_params['save_plot']:
             node.animate_update()
         rospy.sleep(1e-8) # Sleep so ROS subscribers can update
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--path", default="data/rail/", help="Root folder for data & config")
+    parser.add_argument("--rebuild_gp", default=False, action='store_true',
+                        help="Force a new Gaussian process to build")
+    args = parser.parse_args()
+    start_node(args.path, args.rebuild_gp)
