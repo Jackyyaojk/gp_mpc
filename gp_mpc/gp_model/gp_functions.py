@@ -24,8 +24,11 @@ def build_mean_func(N, Nx, Ny, hyper, mean_func='zero', build_const = False):
         Copyright (c) 2018, Helge-André Langåker
 
     # Arguments:
-        hyper: Matrix with hyperperameters.
+        hyper: Dictionary with hyperperameters.
         X: Input vector or matrix.
+        N: Number of points in GP
+        Nx: Dimension of regression state
+        Ny: Dimension of output of GP
         func: Option for mean function:
                 'zero':       m = 0
                 'const':      m = az
@@ -37,16 +40,16 @@ def build_mean_func(N, Nx, Ny, hyper, mean_func='zero', build_const = False):
     X_s = ca.SX.sym('x', N, Nx)
     m = ca.SX(N,Ny)
 
-    if mean_func == 'zero':
+    if mean_func == 'zero': # tested
         m = ca.SX.zeros(N,Ny)
-    elif mean_func == 'const':
+    elif mean_func == 'const': # tested
         for out in range(Ny):
             m[:,out] = hyper['mean'][out]
-    elif mean_func == 'linear':
+    elif mean_func == 'linear': # not tested, written Langagker
         for out in range(Ny):
             for n in range(N):
                 m[n,out] = ca.mtimes(hyper['linear'].T, X_s[n,:].T) + hyper['mean'][out]
-    elif mean_func == 'hinge':
+    elif mean_func == 'hinge': # not tested, new function
         for out in range(Ny):
             for n in range(N):
                 m[n,out] = ca.mtimes(hyper['linear'].T, ca.fmax(X_s[n,:].T,hyper['hinge'])) \
@@ -54,6 +57,7 @@ def build_mean_func(N, Nx, Ny, hyper, mean_func='zero', build_const = False):
     else:
         raise NameError('No mean function called: ' + mean_func)
 
+    # Get the symbolic mean function variables
     sym_mean_params = hyper.filter(to_ignore = ['length_scale', 'noise_var', 'signal_var'], ignore_numeric = True)
     return ca.Function('mean', [X_s, *sym_mean_params.values()],[m])
 

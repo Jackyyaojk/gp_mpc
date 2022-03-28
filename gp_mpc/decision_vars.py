@@ -85,6 +85,7 @@ class decision_var_set:
     def filter(self, to_ignore = [], ignore_numeric = False):
         """
         Returns the decision variables or optimized values not in the to_ignore list.
+        Ignore_numeric also drops numerical values from the filter output
         """
         filtered_dict = {}
         for key in self.__keys:

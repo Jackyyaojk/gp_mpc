@@ -20,6 +20,9 @@ hyper:                # Following Rasmussen2006
   length_scale: 0.10   # \ell 
   noise_var: 12.5     # \sigma_n^2 
   signal_var: 0.25   # \sigma_f^2
+  mean: 0.0   # constant value of mean function
+  linear: 0.0 # slope of the mean function
+  hinge: 0.0  # position of the elbow/corner of the ReLU/Hinge
 
 hyper_rot:
   length_scale: 0.20

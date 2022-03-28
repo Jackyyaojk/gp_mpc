@@ -31,6 +31,7 @@ class gp_model():
         self.validate_params()
 
     def validate_params(self):
+        # @ Christian this initializes the hyperparameters, handles the dimensions, and sets bounds for the GP
         self.modes = list(self.gp_params['data_path'].keys())
         if self.gp_params['num_sparse_points'] is not 0:
             print('Sparse GPs: ensuring baseline points is at least 500')
