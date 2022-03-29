@@ -94,11 +94,11 @@ class GPDynamics:
             # Update state covariance
             if self.mpc_params['state_cov']:
                 x_next[i+2*N_p] = x[i+2*N_p]+dt*dt*x[i+3*N_p] # cov pos
-                f_cov_tmp = f_cov[0] if self.mpc_params['simplify_cov'] else f_cov[i,i] 
-                x_next[i+3*N_p] = bn**2*x[i+3*N_p]+(dt/imp_params[i])**2*f_cov_tmp
+                f_cov_tmp = f_cov[0] if self.mpc_params['simplify_cov'] else f_cov[i] 
+                x_next[i+3*N_p] = bn**2*x[i+3*N_p]+10*(dt/imp_params[i])**2*f_cov_tmp
 
         # Define stagecost L, note control costs happen in main MPC problem as control shared btwn modes
-        L = self.__Q_vel*ca.sumsqr(x_next[N_p:2*N_p]) + self.__R*ca.sumsqr(u[:3]) + self.__I*ca.trace(f_cov)
+        L = self.__Q_vel*ca.sumsqr(x_next[N_p:2*N_p]) + self.__R*ca.sumsqr(u[:3]) + self.__I*ca.sum1(f_cov)
         if N_p == 6: L += self.__Rr*ca.sumsqr(u[3:6])
         if self.mpc_params['state_cov']: L += self.__S*ca.sum1(x_next[2*N_p:]) 
 

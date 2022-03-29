@@ -35,7 +35,7 @@ class mpc_impedance_control():
         self.state_dim = 3 if not self.rotation else 6  # range of state
 
         np.random.seed(0)
-        np.set_printoptions(formatter={'float': '{: 6.2f}'.format})
+        np.set_printoptions(formatter={'float': '{: 6.4f}'.format})
 
         # Set up or load gp models
         self.gp_models = gp_model(self.gp_params, rotation = self.rotation)

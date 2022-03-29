@@ -137,25 +137,32 @@ def plot_model_cov(model_path, ext = 0.05):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--path", default="data/rail/", help="Root folder for data & config")
+    parser.add_argument("--rebuild_gp", default=False, action='store_true',
+                        help="Force a new Gaussian process to build")
+    parser.add_argument("-f", nargs='+', help='Files to validate on', required=False)
     args = parser.parse_args()
 
-    #if os.path.exists("GP_models.pkl"): os.remove("GP_models.pkl")
-    #subprocess.Popen(["python3", "-m" "gp_mpc.control", "--path", args.path])
-    #sleep(30.0)
-    #os.system("rosnode kill -a")
+
+    if args.rebuild_gp:
+        if os.path.exists("GP_models.pkl"): os.remove("GP_models.pkl")
+        subprocess.Popen(["python3", "-m" "gp_mpc.control", "--path", args.path])
+        sleep(30.0)
+        os.system("rosnode kill -a")
 
     scale_B = 0.00003
-    scale_M = 0.00005
-    files = ["3"] # names of the rosbags to test
+    scale_M = 0.001
+    #files = [f for f in os.listdir(args.path) if os.path.isfile(os.path.join(args.path,f)) and f.endswith('.bag')] # names of the rosbags to test
+    files = args.f
     for fi in files:
+        print("Validating with file {}".format(fi))
         subprocess.Popen(["python3", "-m" "gp_mpc.control", "--path", args.path])
         sleep(1.0)
-        subprocess.Popen(["rosbag", "record", "-a","-O","".join([fi,"_validate.bag"])])
-        os.system("".join(["rosbag play ", args.path, fi, ".bag && rosnode kill -a"]))
-    
+        subprocess.Popen(["rosbag", "record", "-a","-O","".join(["validate_",fi])])
+        os.system("".join(["rosbag play ", args.path, fi, " && rosnode kill -a"]))
+
     fig, ax = plot_model_cov('GP_models.pkl')
 
-    for bag in ["".join([fi,"_validate.bag"]) for fi in files]:
+    for bag in ["".join(["validate_", fi]) for fi in files]:
         imp_msgs = bag_loader(bag, map_impedance_gains, topic_name = 'impedance_gains_sim')
         state_msgs = bag_loader(bag, map_robot_state, topic_name = 'robot_state')
 
@@ -172,7 +179,7 @@ if __name__ == "__main__":
             else:
                 skipcnt += 1
                 continue
-
+            
             line_damp = ax.plot([p[0]-scale_B*B[1], p[0]+scale_B*B[1]],
                     [p[1], p[1]],
                     [p[2], p[2]],'r', label = 'Damping')[0]

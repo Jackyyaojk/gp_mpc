@@ -55,6 +55,10 @@ class gp_model():
         if self.gp_params['mean_func'] in ('hinge'):
             g_p['hinge_position'] = np.zeros(self.state_dim)
 
+        g_p['mean'] *= np.ones((self.state_dim,1))
+        g_p['linear'] *= np.ones((self.state_dim,1))
+        g_p['hinge'] *= np.ones((self.state_dim,1))
+
         # Set bounds on hyperparams if optimizing
         self.hyper_lb = {p:0.01 for p in ('length_scale', 'noise_var', 'signal_var')}
         self.hyper_ub = {'length_scale':1.0, 'noise_var':28.0, 'signal_var':20.0}

@@ -24,7 +24,7 @@ u_rot_max: 6.0 # Max rotational force (Nm)
 enable_rotation: false
 match_human_force: false     # Cost function penalizes |f_human -j u| instead of |f_human|
 risk_sens: -0.0             # -0.02 is OK. If 0, standard expected cost used
-simplify_cov: true          # Use only  first element in GP covariance, axis specified in gp_params
+simplify_cov: false          # Use only  first element in GP covariance, axis specified in gp_params
 integrator: 'implicit'      # 'explicit'      # explicit, semi-implicit, or trapezoidal
 state_cov: true            # Integrate uncertainty in state (pos + vel)
 opti_MBK: true             # Jointly optimize M/B/K params

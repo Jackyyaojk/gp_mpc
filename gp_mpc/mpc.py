@@ -98,6 +98,7 @@ class MPC:
         #sol_imp = self.solver_imp(**self.args_imp) #TODO: test on dev laptop
         if self.mpc_params['opti_MBK']: self.mbk_traj = np.squeeze(self.extract_mbk(sol['x'],imp_params_num).full())
                                                        #self.extract_mbk(sol_imp['x'], imp_params_num)
+        self.f_cov_traj = np.squeeze(self.extract_f_cov(sol['x'], imp_params_num, init_pose_num))
         # Write the debug logs
         if hasattr(self, "pipe_path"):
             try:
@@ -280,6 +281,7 @@ class MPC:
                                        ['w', 'init_pose'], ['hum_force', 'hum_joint_torque', 'hum_shoulder', 'hum_joints'])
         imp_params_to_return = imp_params_opt[0] if len(imp_params_opt)>0 else []
         self.extract_mbk = ca.Function('extract_mbk', [ca.vertcat(*w), init_imp_params], [imp_params_to_return])
+        self.extract_f_cov = ca.Function('extract_f_cov', [ca.vertcat(*w), init_imp_params, init_pose], [Fk_next['f_cov']])
         # Set up dictionary of arguments to solve
         self.args = dict(x0=w0, lbx=lbw, ubx=ubw, lbg=lbg, ubg=ubg)
         prob = {'f': J_total, 'x': ca.vertcat(*w), 'g': ca.vertcat(*g), 'p': ca.vertcat(*p)}
@@ -376,7 +378,6 @@ class MPC:
             p += [belief[mode]]
         p += [init_imp_params]
         
-
         # Functions to get x, u and human force from w
         imp_params_to_return = imp_params_opt[0] if len(imp_params_opt)>0 else []
         self.extract_mbk = ca.Function('extract_mbk', [ca.vertcat(*w), init_imp_params], [imp_params_to_return])
