@@ -192,7 +192,8 @@ class MPC:
             g += [imp_params]
             lbg += [self.mpc_params['M_min']]*self.__N_p
             lbg += [self.mpc_params['B_min']]*self.__N_p
-            ubg += [np.inf]*2*self.__N_p
+            ubg += [self.mpc_params['M_max']]*self.__N_p
+            ubg += [self.mpc_params['B_max']]*self.__N_p
 
         # Dynamics!
         Xk = {}

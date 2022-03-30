@@ -28,8 +28,6 @@ class mpc_impedance_control():
         # Loading config files
         self.mpc_params = yaml_load(path, 'mpc_params.yaml')
         self.mode_detector_params = yaml_load(path, 'mode_detector_params.yaml')
-        self.gp_params = yaml_load(path, 'gp_params.yaml')
-        self.gp_params['path'] = path
 
         self.rotation = self.mpc_params['enable_rotation']
         self.state_dim = 3 if not self.rotation else 6  # range of state
@@ -38,7 +36,7 @@ class mpc_impedance_control():
         np.set_printoptions(formatter={'float': '{: 6.4f}'.format})
 
         # Set up or load gp models
-        self.gp_models = gp_model(self.gp_params, rotation = self.rotation)
+        self.gp_models = gp_model(path, rotation = self.rotation)
         self.models, self.modes = self.gp_models.load_models(rebuild = rebuild_gp)
 
         self.mode_detector = mode_detector(self.modes, self.models,
@@ -88,7 +86,7 @@ class mpc_impedance_control():
             self.obs   = msg_to_obs(msg)
         except:
             print("Error loading ROS message in update_state")
-        if np.linalg.norm(self.obs[:3]) > self.mode_detector_params['min_force']:
+        if len(self.modes) > 1 and np.linalg.norm(self.obs[:3]) > self.mode_detector_params['min_force']:
             bel_arr = self.mode_detector.update_belief(self.obs[:self.state_dim], self.state[self.state_dim])
             if self.pub_belief:
                 msg_belief = Float64MultiArray(data = bel_arr)

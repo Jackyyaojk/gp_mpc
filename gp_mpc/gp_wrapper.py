@@ -13,13 +13,13 @@ import pickle
 
 # Custom classes
 from .gp_model import GP
-from .helper_fns import msg_to_state, msg_to_obs, force_comp_to_world
+from .helper_fns import msg_to_state, msg_to_obs, force_comp_to_world, yaml_load
 
 class gp_model():
     '''
     This class wraps the GP class from gp_model adding modes, data loading, and plotting
     '''
-    def __init__(self, gp_params, rotation = False):
+    def __init__(self, path="", rotation = False):
         self.rotation = rotation
         self.state_dim = 3+3*rotation
 
@@ -27,7 +27,8 @@ class gp_model():
         self.obs    = {}
         self.models = {}
 
-        self.gp_params = gp_params
+        self.gp_params = yaml_load(path, 'gp_params.yaml')
+        self.path = path
         self.validate_params()
 
     def validate_params(self):
@@ -55,17 +56,18 @@ class gp_model():
         if self.gp_params['mean_func'] in ('hinge'):
             g_p['hinge_position'] = np.zeros(self.state_dim)
 
-        g_p['mean'] *= np.ones((self.state_dim,1))
-        g_p['linear'] *= np.ones((self.state_dim,1))
-        g_p['hinge'] *= np.ones((self.state_dim,1))
+        if 'mean' in g_p: g_p['mean'] *= np.ones((self.state_dim,1))
+        if 'linear' in g_p: g_p['linear'] *= np.ones((self.state_dim,1))
+        if 'hinge' in g_p: g_p['hinge'] *= np.ones((self.state_dim,1))
 
         # Set bounds on hyperparams if optimizing
         self.hyper_lb = {p:0.01 for p in ('length_scale', 'noise_var', 'signal_var')}
         self.hyper_ub = {'length_scale':1.0, 'noise_var':28.0, 'signal_var':20.0}
 
     def load_models(self, rebuild = True):
-        if not rebuild and isfile(self.gp_params['model_path']):
-            with open(self.gp_params['model_path'], 'rb') as f:
+        model_path = self.path + "GP_models.pkl"
+        if not rebuild and isfile(model_path):
+            with open(model_path, 'rb') as f:
                 self.models = pickle.load(f)
                 self.modes = list(self.models.keys())
                 print('Loaded models for {}'.format(self.modes))
@@ -76,14 +78,14 @@ class gp_model():
                 self.build_model(mode)
             for mode in self.modes:
                 self.validate_model(mode)
-            with open(self.gp_params['model_path'], 'wb') as f:
+            with open(model_path, 'wb') as f:
                 pickle.dump(self.models, f)
 
         return self.models, self.modes
 
     def load_data(self, mode):
         # Load rosbags
-        paths = sorted([self.gp_params['path']+fi for fi in self.gp_params['data_path'][mode]])
+        paths = sorted([self.path+fi for fi in self.gp_params['data_path'][mode]])
         print("Loading mode {} with {}".format(mode, paths))
         trimmed_msgs = self.load_bags(paths)
 

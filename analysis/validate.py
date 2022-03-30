@@ -12,6 +12,7 @@ import matplotlib.pyplot as plt
 
 from gp_mpc.gp_wrapper import gp_model
 from gp_mpc.control import start_node
+from gp_mpc.helper_fns import yaml_load
 
 
 def bag_loader(path, map_and_append_msg, topic_name = 'robot_state', normalize = ''):
@@ -54,7 +55,7 @@ def get_aligned_msgs(msgs1, msgs2):
 
     for key in msgs2.keys():
         aligned_msgs2[key] = np.array(aligned_msgs2[key]).T
-    
+
     return aligned_msgs2
 
 def map_robot_state(msg, prev_msgs):
@@ -65,7 +66,7 @@ def map_robot_state(msg, prev_msgs):
     prev_msgs['vel'].append(msg.velocity)
     prev_msgs['force'].append(msg.effort)
     return prev_msgs
-    
+
 def map_impedance_gains(msg, prev_msgs):
     if len(prev_msgs) is 0:
         for el in ('K', 'B', 'M', 'Fd'):
@@ -139,30 +140,35 @@ if __name__ == "__main__":
     parser.add_argument("--path", default="data/rail/", help="Root folder for data & config")
     parser.add_argument("--rebuild_gp", default=False, action='store_true',
                         help="Force a new Gaussian process to build")
+    parser.add_argument("--skip_validate", default=False, action='store_true',
+                        help="Skip the evaluation step, use ready .bags to plot")
     parser.add_argument("-f", nargs='+', help='Files to validate on', required=False)
     args = parser.parse_args()
 
+    model_path = args.path+"GP_models.pkl"
 
     if args.rebuild_gp:
-        if os.path.exists("GP_models.pkl"): os.remove("GP_models.pkl")
-        subprocess.Popen(["python3", "-m" "gp_mpc.control", "--path", args.path])
-        sleep(30.0)
-        os.system("rosnode kill -a")
+        if os.path.exists(model_path): os.remove(model_path)
+        #subprocess.Popen(["python3", "-m" "gp_mpc.control", "--path", args.path])
+        mpc_params = yaml_load(args.path, 'mpc_params.yaml')
+        models = gp_model(args.path, rotation = mpc_params['enable_rotation'])
+        models.load_models(rebuild = True)
 
     scale_B = 0.00003
     scale_M = 0.001
-    #files = [f for f in os.listdir(args.path) if os.path.isfile(os.path.join(args.path,f)) and f.endswith('.bag')] # names of the rosbags to test
+
     files = args.f
-    for fi in files:
-        print("Validating with file {}".format(fi))
-        subprocess.Popen(["python3", "-m" "gp_mpc.control", "--path", args.path])
-        sleep(1.0)
-        subprocess.Popen(["rosbag", "record", "-a","-O","".join(["validate_",fi])])
-        os.system("".join(["rosbag play ", args.path, fi, " && rosnode kill -a"]))
+    if not args.skip_validate:
+        for fi in files:
+            print("Validating with file {}".format(fi))
+            subprocess.Popen(["python3", "-m" "gp_mpc.control", "--path", args.path])
+            sleep(1.0)
+            subprocess.Popen(["rosbag", "record", "-a","-O","".join([args.path, "validate_", fi])])
+            os.system("".join(["rosbag play ", args.path, fi, " && rosnode kill -a"]))
 
-    fig, ax = plot_model_cov('GP_models.pkl')
+    fig, ax = plot_model_cov(model_path)
 
-    for bag in ["".join(["validate_", fi]) for fi in files]:
+    for bag in ["".join([args.path, "validate_", fi]) for fi in files]:
         imp_msgs = bag_loader(bag, map_impedance_gains, topic_name = 'impedance_gains_sim')
         state_msgs = bag_loader(bag, map_robot_state, topic_name = 'robot_state')
 
@@ -172,14 +178,14 @@ if __name__ == "__main__":
         B = imp_msgs['B']
         M = imp_msgs['M']
         subsample_rate = 10
-        skipcnt = 0 
+        skipcnt = 0
         for p, B, M  in zip(state_msgs_aligned['pos'].T, imp_msgs['B'].T, imp_msgs['M'].T):
             if skipcnt > subsample_rate:
                 skipcnt = 0
             else:
                 skipcnt += 1
                 continue
-            
+
             line_damp = ax.plot([p[0]-scale_B*B[1], p[0]+scale_B*B[1]],
                     [p[1], p[1]],
                     [p[2], p[2]],'r', label = 'Damping')[0]
