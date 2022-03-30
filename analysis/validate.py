@@ -127,7 +127,7 @@ def plot_model_cov(model_path, ext = 0.05):
             covs.append(0.5*np.min(np.diag(cov)))
         ax2.scatter(x+offset, y+offset, z+offset, s=covs, color = c)
         offset += 0.02
-    print(covs)
+    #print(covs)
     ax2.set_xlabel('X')
     ax2.set_ylabel('Y')
     ax2.set_zlabel('Z')
@@ -137,12 +137,12 @@ def plot_model_cov(model_path, ext = 0.05):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--path", default="data/rail/", help="Root folder for data & config")
+    parser.add_argument("-p", "--path", default="data/rail/", help="Root folder for data & config")
     parser.add_argument("--rebuild_gp", default=False, action='store_true',
                         help="Force a new Gaussian process to build")
     parser.add_argument("--skip_validate", default=False, action='store_true',
                         help="Skip the evaluation step, use ready .bags to plot")
-    parser.add_argument("-f", nargs='+', help='Files to validate on', required=False)
+    parser.add_argument("-f","--files", nargs='+', help='Files to validate on', required=False)
     args = parser.parse_args()
 
     model_path = args.path+"GP_models.pkl"
@@ -154,19 +154,20 @@ if __name__ == "__main__":
         models = gp_model(args.path, rotation = mpc_params['enable_rotation'])
         models.load_models(rebuild = True)
 
-    scale_B = 0.00003
-    scale_M = 0.001
-
-    files = args.f
+    files = args.files
     if not args.skip_validate:
         for fi in files:
             print("Validating with file {}".format(fi))
             subprocess.Popen(["python3", "-m" "gp_mpc.control", "--path", args.path])
             sleep(1.0)
             subprocess.Popen(["rosbag", "record", "-a","-O","".join([args.path, "validate_", fi])])
-            os.system("".join(["rosbag play ", args.path, fi, " && rosnode kill -a"]))
+            os.system("".join(["rosbag play -r 0.5 ", args.path, fi, " && rosnode kill -a"]))
 
     fig, ax = plot_model_cov(model_path)
+
+    scale_B = 0.00003
+    scale_M = 0.001
+    num_plot_pts = 150
 
     for bag in ["".join([args.path, "validate_", fi]) for fi in files]:
         imp_msgs = bag_loader(bag, map_impedance_gains, topic_name = 'impedance_gains_sim')
@@ -174,10 +175,8 @@ if __name__ == "__main__":
 
         state_msgs_aligned = get_aligned_msgs(imp_msgs, state_msgs)
 
-        p = state_msgs_aligned['pos']
-        B = imp_msgs['B']
-        M = imp_msgs['M']
-        subsample_rate = 10
+        subsample_rate = int(state_msgs_aligned['pos'].shape[1]/num_plot_pts)
+        print(subsample_rate)
         skipcnt = 0
         for p, B, M  in zip(state_msgs_aligned['pos'].T, imp_msgs['B'].T, imp_msgs['M'].T):
             if skipcnt > subsample_rate:
