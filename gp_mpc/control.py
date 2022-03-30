@@ -77,7 +77,6 @@ class mpc_impedance_control():
         self.control_time = time.time()
         self.timelist = []
 
-
     # Callback function when state message recieved
     def update_state(self, msg):
         self.recieved_robot_state = True
@@ -116,8 +115,10 @@ class mpc_impedance_control():
             des_force = np.zeros(self.state_dim)
             if not send_zeros:
                 start = time.time()
-                u_opt_traj = self.mpc.solve(self.state, self.mode_detector.bel,
-                                            self.impedance_params['M'], self.impedance_params['B'])
+                u_opt_traj = self.mpc.solve(init_pose_num = self.state,
+                                            belief_num = self.mode_detector.bel,
+                                            imp_params_num_mass = self.impedance_params['M'],
+                                            imp_params_num_damp = self.impedance_params['B'])
                 self.timelist.append((time.time() - start))
                 des_force = u_opt_traj[:self.state_dim,0]
 
@@ -126,7 +127,7 @@ class mpc_impedance_control():
                     prstr += 'mpc {: 6.3f} | '.format(time.time()-start)
                     if self.mpc_params['opti_MBK']:
                         prstr += '\n Delta_M {} | Delta_B {} '\
-                                  .format(-self.mpc.mbk_traj[:self.state_dim], -self.mpc.mbk_traj[:self.state_dim])
+                                  .format(-self.mpc.mbk_traj[:self.state_dim], -self.mpc.mbk_traj[self.state_dim:])
                         prstr += '\n M {} | B {} | '.format(self.impedance_params['M'][:self.state_dim],
                                                             self.impedance_params['B'][:self.state_dim] )
                     prstr += 'total {: 6.3f}'.format(time.time()-self.control_time)
@@ -144,7 +145,8 @@ class mpc_impedance_control():
                                            d_damp = self.mpc.mbk_traj[self.state_dim:])
                     return
 
-            self.build_and_publish(des_force = des_force)
+                self.build_and_publish(des_force = des_force,
+                                       d_damp = self.mpc.mbk_traj[self.state_dim:])
 
     # Build and publish the ROS messages
     def build_and_publish(self, des_force = None, des_damp = None, d_damp = None, d_mass = None):

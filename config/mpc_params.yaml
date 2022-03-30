@@ -2,20 +2,20 @@
 #### COST FUNCTION PARAMETERS  ####
 H: 1        # Human force cost
 H_jt: 0.0   # Human joint cost
-I: 370      # Human force covariance cos 
+I: 1570      # Human force covariance cos 
 Q_pos: 0.0  # Position cost
 Q_vel: 0.1  # Velocity cost
 S: 100.0      # State covariance cost
 
 R: 0.30     # Contol cost
-u_lin_max: 20.0 # Max linear force (N)
+u_lin_max: 10.0 # Max linear force (N)
 
 delta_B_cost: 0.0005
 delta_M_cost: 0.005
-delta_B_max: 25
-delta_M_max: 0.5
-B_min: 300
-M_min: 5
+delta_B_max: 5
+delta_M_max: 0.1
+B_min: 500
+M_min: 8
 B_max: 2000
 M_max: 20
 
@@ -24,7 +24,7 @@ u_rot_max: 6.0 # Max rotational force (Nm)
 
 #### MPC Problem ####
 enable_rotation: false
-match_human_force: false     # Cost function penalizes |f_human -j u| instead of |f_human|
+match_human_force: true     # Cost function penalizes |f_human -j u| instead of |f_human|
 risk_sens: -0.0             # -0.02 is OK. If 0, standard expected cost used
 simplify_cov: false          # Use only  first element in GP covariance, axis specified in gp_params
 integrator: 'implicit'      # 'explicit'      # explicit, semi-implicit, or trapezoidal
@@ -43,7 +43,7 @@ chance_bnd: 0 # 30
 
 well_damped_margin: 0 # 3.0
 
-sim: true
+sim: false
 
 # Outputs and debug
 print_control: true
