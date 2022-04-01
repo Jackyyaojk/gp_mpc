@@ -14,9 +14,9 @@ class decision_var:
     Upper/lower bounds ub/lb default to +/- np.inf unless overwritten
     """
     def __init__(self, x0, lb = -np.inf, ub = np.inf):
-        self.x0 = x0
-        self.shape = x0.shape
-        self.size = x0.size
+        self.x0 = np.array(x0)
+        self.shape = self.x0.shape
+        self.size  = self.x0.size
         self.lb = np.full(self.shape, lb)
         self.ub = np.full(self.shape, ub)
 
@@ -60,7 +60,7 @@ class decision_var_set:
         """
         # Arguments:
             key: name of variable
-            value: dec_var
+            value: decision_var which should be set there
         """
         value.x = self.__ty(key, *value.shape)
         self.__vars[key] = value
