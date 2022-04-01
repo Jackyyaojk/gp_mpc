@@ -71,6 +71,7 @@ class decision_var_set:
         If no results are set, returns the symbolic variable at key
         If results are set, returns the numeric value at key
         """
+        if not key in self.__vars: return None
         return self.__vars[key].x
 
     def __len__(self):

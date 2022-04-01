@@ -43,7 +43,6 @@ print_control: true
 live_plot: true    # display the trajectory planning
 save_plot: false   # save the trajectory animation
 precomp: false     # precompile the MPC solver
-print_IPOPT: true  # Print MPC output to mpc_log
 
 # Human arm
 max_shoulder: 0.35          # Range (in m) for max x/y translation of shoulder
