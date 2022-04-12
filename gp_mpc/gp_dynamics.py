@@ -109,23 +109,14 @@ class GPDynamics:
         f_joints = []
         hum_kin_opti = []
         if self.human_kin and self.__H_jt:
-            if self.mpc_params['opti_hum_jts']:
-                shoulder_pos = ca.SX.sym('shoulder_pos', 3)
-                hum_kin_opti += [shoulder_pos]
-            else:
-                shoulder_pos = self.mpc_params['human_kin']['center']
-
-            if self.mpc_params['opti_hum_jts']: # joints are then an optimization variable
-                hum_jts = ca.SX.sym('hum_jts', 4)
-                hum_kin_opti += [hum_jts]
-                f_joints = self.human_joint_torques_joint(ca.vertcat(x[:3], init_pose[3:]), hum_jts, f_mu)
-            elif self.__H_jt is not 0.0:
+            shoulder_pos = self.mpc_params['human_kin']['center']
+            if self.__H_jt is not 0.0:
                 f_joints = self.human_joint_torques_cart(ca.vertcat(x[:3], init_pose[3:]), shoulder_pos, f_mu)
                 L += self.__H_jt*ca.sumsqr(f_joints)
 
-        dynamics = ca.Function('F_int', [x, u, init_pose, ca.vertcat(*hum_kin_opti), imp_params],\
+        dynamics = ca.Function('F_int', [x, u, init_pose, imp_params],\
                                [x_next, L, f_mu, f_cov, f_joints], \
-                               ['x', 'u', 'init_pose', 'hum_kin_opti', 'imp_params'], \
+                               ['x', 'u', 'init_pose',  'imp_params'], \
                                ['xf', 'st_cost', 'hum_force_cart', 'f_cov', 'hum_force_joint'] )
              # {"jit":True, "jit_options":{'flags':'-O3'}}) # Can JIT the dynamics, less helpful for typical problem
         return dynamics

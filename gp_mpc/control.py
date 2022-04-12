@@ -115,10 +115,11 @@ class mpc_impedance_control():
             des_force = np.zeros(self.state_dim)
             if not send_zeros:
                 start = time.time()
-                u_opt_traj = self.mpc.solve(init_pose_num = self.state,
-                                            belief_num = self.mode_detector.bel,
-                                            imp_params_num_mass = self.impedance_params['M'],
-                                            imp_params_num_damp = self.impedance_params['B'])
+                params = {'init_pose':self.state,
+                          'imp_mass':self.impedance_params['M'],
+                          'imp_damp':self.impedance_params['B']}
+                params.update({'belief_'+mode:self.mode_detector.bel[mode] for mode in self.modes})
+                u_opt_traj = self.mpc.solve(params)
                 self.timelist.append((time.time() - start))
                 des_force = u_opt_traj[:self.state_dim,0]
 
@@ -126,30 +127,32 @@ class mpc_impedance_control():
                     prstr += ' Fd  {} | '.format(des_force)
                     prstr += 'mpc {: 6.3f} | '.format(time.time()-start)
                     if self.mpc_params['opti_MBK']:
-                        prstr += '\n Delta_M {} | Delta_B {} '\
-                                  .format(-self.mpc.mbk_traj[:self.state_dim], -self.mpc.mbk_traj[self.state_dim:])
-                        prstr += '\n M {} | B {} | '.format(self.impedance_params['M'][:self.state_dim],
+                        prstr += '\n des M {} | des B {} '\
+                                  .format(-self.mpc.imp_mass, -self.mpc.imp_damp)
+                        prstr += '\n cur M {} | cur B {} | '.format(self.impedance_params['M'][:self.state_dim],
                                                             self.impedance_params['B'][:self.state_dim] )
                     prstr += 'total {: 6.3f}'.format(time.time()-self.control_time)
                     self.control_time = time.time()
                     print(prstr)
 
                 if self.mpc_params['sim']:
-                    if self.mpc_params['opti_MBK']:
-                        self.impedance_params['M'][:self.state_dim] += np.array(self.mpc.mbk_traj[:self.state_dim])
-                        self.impedance_params['B'][:self.state_dim] += np.array(self.mpc.mbk_traj[self.state_dim:])
                     self.build_and_publish(des_force = des_force,
-                                           #d_mass = self.impedance_params['M'][:self.state_dim],
-                                           #d_damp = self.impedance_params['B'][:self.state_dim])
-                                           d_mass = self.mpc.mbk_traj[:self.state_dim],
-                                           d_damp = self.mpc.mbk_traj[self.state_dim:])
+                                           des_mass = self.mpc.imp_mass,
+                                           des_damp = self.mpc.imp_damp)
+                    if self.mpc_params['opti_MBK']:
+                        self.impedance_params['M'][:self.state_dim] = self.mpc.imp_mass
+                        self.impedance_params['B'][:self.state_dim] = self.mpc.imp_damp
+
                     return
 
                 self.build_and_publish(des_force = des_force,
-                                       d_damp = self.mpc.mbk_traj[self.state_dim:])
+                                       des_damp = self.mpc.imp_damp,
+                                       des_mass = self.mpc.imp_mass)
 
     # Build and publish the ROS messages
-    def build_and_publish(self, des_force = None, des_damp = None, d_damp = None, d_mass = None):
+    def build_and_publish(self, des_force = None,
+                          des_damp = None, des_mass = None,
+                          d_damp = None, d_mass = None):
             msg_control = JointState()
             msg_control.position = np.zeros(6)
             msg_control.velocity = np.zeros(6)
@@ -159,6 +162,8 @@ class mpc_impedance_control():
             msg_control.effort[6:6+self.state_dim] = des_force
             if des_damp is not None:
                 msg_control.velocity = 0.7*(des_damp - self.impedance_params['B'][:self.state_dim])
+            if des_mass is not None:
+                msg_control.effort[:self.state_dim] = 0.7*(des_mass - self.impedance_params['M'][:self.state_dim])
             if d_damp is not None :
                 msg_control.velocity[:self.state_dim] = d_damp
             if d_mass is not None:
@@ -306,7 +311,8 @@ def start_node(path = '', rebuild_gp = False):
 
     while not rospy.is_shutdown():
         node.control()
-        if node.mpc_params['live_plot'] or node.mpc_params['save_plot']:
+        if node.recieved_robot_state and \
+        (node.mpc_params['live_plot'] or node.mpc_params['save_plot']):
             node.animate_update()
         rospy.sleep(1e-8) # Sleep so ROS subscribers can update
 

@@ -13,19 +13,26 @@ class decision_var:
     Individual optimization variable, initialized from an initial value x0.
     Upper/lower bounds ub/lb default to +/- np.inf unless overwritten
     """
-    def __init__(self, x0, lb = -np.inf, ub = np.inf):
-        self.x0 = np.array(x0)
+    def __init__(self, x0, lb = -np.inf, ub = np.inf, x = None):
+        if type(x0) == ca.SX or type(x0) == ca.MX:
+            self.x = x0
+            self.size = np.prod(x0.shape)
+        else:
+            x0 = np.array(x0)
+            self.size  = x0.size
+
+        self.x0 = x0
         self.shape = self.x0.shape
-        self.size  = self.x0.size
         self.lb = np.full(self.shape, lb)
         self.ub = np.full(self.shape, ub)
-
-        assert np.all(x0 >= self.lb), "x0 below given lower bound"
-        assert np.all(x0 <= self.ub), "x0 above given upper bound"
+        self.x = x
+        
+            
+#        assert np.all(x0 >= self.lb), "x0 below given lower bound"
+#        assert np.all(x0 <= self.ub), "x0 above given upper bound"
 
     def __len__(self):
         return self.size
-
 
 class decision_var_set:
     """
@@ -47,8 +54,8 @@ class decision_var_set:
           - lb: optional dict of lower bounds, if no key for a key in x0, will default to -np.inf
         """
         assert version_info >= (3, 6), "Python 3.6 required to guarantee dicts are ordered"
-        self.__ty = var_type
-        self.__vars = {}   # Individual variables
+        self.__ty = var_type     # Type of symbolic variable
+        self.__vars = {}         # Individual variables
         self.__optimized = False # Flag if set_results has been called
 
         for key in x0.keys():
@@ -62,7 +69,8 @@ class decision_var_set:
             key: name of variable
             value: decision_var which should be set there
         """
-        value.x = self.__ty(key, *value.shape)
+        if value.x is None:
+            value.x = self.__ty(key, *value.shape)
         self.__vars[key] = value
         self.__keys = list(self.__vars.keys())
 
@@ -97,6 +105,9 @@ class decision_var_set:
 
     def vectorize(self, attr):
         return ca.vertcat(*[getattr(el, attr).reshape((el.size,1)) for el in self.__vars.values()])
+
+    def get_elem_vector(self, key):
+        return ca.vertcat(self.__vars[key].x.reshape((self.__vars[key].size,1)))
 
     def get_dec_vectors(self):
         """

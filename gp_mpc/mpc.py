@@ -8,6 +8,7 @@ import casadi as ca
 # Custom includes
 from .gp_model import GP
 from .helper_fns import yaml_load, constraints
+from .decision_vars import decision_var_set, decision_var
 
 class MPC:
     def __init__(self, N_p, mpc_params, gp_dynamics_dict):
@@ -25,7 +26,7 @@ class MPC:
         self.__hum_FK = list(gp_dynamics_dict.values())[0].human_FK
 
         # l:lower / u:upper bound on all decision variables
-        self.__lbd, self.__ubd = self.constraints()
+        self.__lbd, self.__ubd = self.build_dec_var_constraints()
 
         self.__constraint_slack = mpc_params['constraint_slack']
         self.__precomp = mpc_params['precomp']
@@ -39,11 +40,10 @@ class MPC:
         # params are the numerical values of initial robot pose, mode belief, and impedance parameters
 
         #Create problem and solver
-        if not hasattr(self, "solver"): self.solverhelper()
+        if not hasattr(self, "solver"): self.build_solver(params)
 
         # Update parameters for the solver
-        self.args["p"] = params.get_x0()
-
+        self.args['p'] = ca.vertcat(*[params[el] for el in params.keys()])
         # Solve the NLP
         sol = self.solver(**self.args)
 
@@ -52,28 +52,23 @@ class MPC:
         self.args['lam_x0'] = sol['lam_x']
         self.args['lam_g0'] = sol['lam_g']
 
-        self.__x_opt.sol['x']
-
-        self.x_traj = {self.__dec_vars['x_'+m] for m in self.__modes}
-        self.u_traj = self.__dec_vars['u']
-        self.mbk_traj = self.__dec_vars['imp_params']
+        self.__vars.set_results(sol['x'])
+        self.x_traj = {m:self.__vars['x_'+m] for m in self.__modes}
+        print(self.x_traj)
+        self.u_traj = self.__vars['u']
+        self.imp_mass = np.squeeze(self.__vars['imp_mass'])
+        self.imp_damp = np.squeeze(self.__vars['imp_damp'])
 
         return self.u_traj
 
-    def build_solver(self): # Formulate the NLP for multiple-shooting
+    def build_solver(self, params): # Formulate the NLP for multiple-shooting
         N_x = self.__N_x
         N_u = self.__N_p
         ty = ca.MX if self.mpc_params['precomp'] else ca.SX # Type to use for MPC problem
            # MX has smaller memory footprint, SX is faster.  MX helps alot when using autogen C code.
 
         # Symbolic varaibles for parameters, these get assigned to numerical values in solve()
-        params_initializer = {mode:ty.sym('belief_'+mode,1) for mode in self.__modes}
-        params_initializer = {'init_pose': np.zeros(6),
-                              'imp_mass': np.zeros(self.__N_p),
-                              'imp_damp': np.zeros(self.__N_p),
-                              'imp_stiff': np.zeros(self.__N_p),
-        }
-        params = decision_var_set(ty, params_initializer)
+        params = decision_var_set(ty.sym, params)
 
         # Initialize empty NLP
         J = {mode:0.0 for mode in self.__modes}     # Objective function
@@ -83,54 +78,35 @@ class MPC:
 
         vars = {}
 
-        # Adding shoulder delta
-        if self.mpc_params['opti_hum_shoulder']:
-            vars['shoulder_pos']  = np.array(self.mpc_params['human_kin']['center'])
-        else:
-            shoulder_pos = self.mpc_params['human_kin']['center']
-
-        # Adding human joints
-        if self.mpc_params['opti_hum_jts']:
-            vars['hum_jts'] = np.zeros(4)
-
-            hum_wrist_pos, _  = self.__hum_FK(jts, shoulder_pos)
-            g += [init_pose[:3]-hum_wrist_pos]
-            lbg += list(np.zeros(3))
-            ubg += list(np.zeros(3))
-
         # Impedance
         if self.mpc_params['opti_MBK']:
-            vars['imp_mass'] = params['imp_mass'] # initial value
-            vars['imp_damp'] = params['imp_damp'] # initial value
+            vars['imp_mass'] = params['imp_mass']
+            vars['imp_damp'] = params['imp_damp']
 
-            lbg += [-self.mpc_params['delta_M_max']]*self.__N_p
-            lbg += [-self.mpc_params['delta_B_max']]*self.__N_p
-            ubg += [self.mpc_params['delta_M_max']]*self.__N_p
-            ubg += [self.mpc_params['delta_B_max']]*self.__N_p
-
-        for m in self.__modes: vars[mode] = np.zeros((N_x, self.__N-1))
+        for m in self.__modes: vars['x_'+m] = np.zeros((N_x, self.__N-1))
         vars['u'] = np.zeros((N_u, self.__N))
 
         ub, lb = self.build_dec_var_constraints()
         self.__vars = decision_var_set(x0 = vars, ub = ub, lb = lb)
 
+        if self.mpc_params['opti_MBK']:
+            g += [self.__vars.get_deviation('imp_mass')]
+            g += [self.__vars.get_deviation('imp_damp')]
+            lbg += [-self.mpc_params['delta_M_max']]*self.__N_p
+            lbg += [-self.mpc_params['delta_B_max']]*self.__N_p
+            ubg += [self.mpc_params['delta_M_max']]*self.__N_p
+            ubg += [self.mpc_params['delta_B_max']]*self.__N_p
+
         for mode in self.__modes:
-            Fk_next = self.__F_int[mode](x = ca.horzcat(np.zeros((N_x, 1)), self.__vars[mode]),
+            Fk_next = self.__F_int[mode](x = ca.horzcat(np.zeros((N_x, 1)), self.__vars['x_'+mode]),
                                          u = self.__vars['u'],
                                          init_pose = params['init_pose'],
-                                         hum_kin_opti = ca.vertcat(params['hum_shoulder_opt'],
-                                                                   params['hum_joint_opt']),
-                                         imp_params = params['imp_params'])
-
-### REWRITTEN TO HERE
+                                         imp_params = ca.vertcat(params['imp_mass'],
+                                                                 params['imp_damp']))
             Xk_next = Fk_next['xf']
-
             J[mode] += ca.sum2(Fk_next['st_cost'])
-            w += [ca.reshape(Xk[mode][:,1:], N_x*(self.__N-1), 1)]
-            lbw += list(self.__lbx)*(self.__N-1)
-            ubw += list(self.__ubx)*(self.__N-1)
-            w0 += list(np.zeros((N_x*(self.__N-1))))
-            g += [ca.reshape(Xk_next[:,:-1]-Xk[mode][:,1:], N_x*(self.__N-1), 1)]
+
+            g += [ca.reshape(Xk_next[:,:-1]-self.__vars['x_'+mode][:,:], N_x*(self.__N-1), 1)]
             lbg += [ self.__constraint_slack]*N_x*(self.__N-1)*len(self.__modes)
             ubg += [-self.__constraint_slack]*N_x*(self.__N-1)*len(self.__modes)
 
@@ -150,62 +126,35 @@ class MPC:
                 lbg += list(np.zeros(1))
                 ubg += list(np.full(1, np.inf))
 
-            x_opt[mode] += [Xk[mode]]
-            hum_force_opt += [Fk_next['hum_force_cart']]
-            hum_jt_torque_opt += [Fk_next['hum_force_joint']]
-
-
         # Calculate total objective
         J_total = 0.0
-        J_u_total = 0.0
-        for U in u_opt:
-            J_u_total += self.mpc_params['R']*ca.sumsqr(U)
+        J_u_total = self.mpc_params['R']*ca.sumsqr(self.__vars['u'])
         if self.mpc_params['opti_MBK']:
-            J_u_total += self.mpc_params['delta_M_cost']*ca.sumsqr(imp_params_delta[:self.__N_p])
-            J_u_total += self.mpc_params['delta_B_cost']*ca.sumsqr(imp_params_delta[self.__N_p:])
+            J_u_total += self.mpc_params['delta_M_cost']*ca.sumsqr(self.__vars.get_deviation('imp_mass'))
+            J_u_total += self.mpc_params['delta_B_cost']*ca.sumsqr(self.__vars.get_deviation('imp_damp'))
 
         if self.mpc_params['risk_sens'] == 0: # Expected cost
             J_total = J_u_total
             for mode in self.__modes:
-                J_total += belief[mode]*J[mode] # expected value
+                J_total += params['belief_'+mode]*J[mode] # expected value
         else: # Risk-sensitive formulation. See, e.g. Medina2012
             for mode in self.__modes:
                 J_total += belief[mode]*ca.exp(-0.5*self.mpc_params['risk_sens']*(J[mode]))
             J_total = -2/self.mpc_params['risk_sens']*ca.log(J_total)+J_u_total
 
-        # Build parameter list
-        p = [init_pose]
-        for mode in self.__modes:
-            p += [belief[mode]]
-        p += [init_imp_params]
-#        p += [imp_par_bnd]
-
-        # Functions to get x, u and human force from w
-        self.extract_traj = { mode: ca.Function('extract_traj', [ca.vertcat(*w)],
-                                                  [Xk[mode]],
-                                                  ['w'], ['x_'+mode])\
-                              for mode in self.__modes }
-        self.extract_ctrl = ca.Function('extract_ctrl', [ca.vertcat(*w)],
-                                                  [ca.horzcat(*u_opt)],
-                                                  ['w'], ['u'])
-        self.extract_hum = ca.Function('extract_hum', [ca.vertcat(*w), init_pose],
-                                       [ca.horzcat(*hum_force_opt), ca.horzcat(*hum_jt_torque_opt),
-                                        hum_shoulder_opt, hum_joint_opt],
-                                       ['w', 'init_pose'], ['hum_force', 'hum_joint_torque', 'hum_shoulder', 'hum_joints'])
-        imp_params_to_return = imp_params_opt[0] if len(imp_params_opt)>0 else []
-        self.extract_mbk = ca.Function('extract_mbk', [ca.vertcat(*w), init_imp_params], [imp_params_to_return])
-        self.extract_f_cov = ca.Function('extract_f_cov', [ca.vertcat(*w), init_imp_params, init_pose], [Fk_next['f_cov']])
         # Set up dictionary of arguments to solve
-        self.args = dict(x0=w0, lbx=lbw, ubx=ubw, lbg=lbg, ubg=ubg)
-        prob = {'f': J_total, 'x': ca.vertcat(*w), 'g': ca.vertcat(*g), 'p': ca.vertcat(*p)}
+        w, lbw, ubw = self.__vars.get_dec_vectors()
+        w0 = self.__vars.get_x0()
+        p, _, _ = params.get_dec_vectors()
+        self.args = dict(x0=np.zeros(w.shape), lbx=lbw, ubx=ubw, lbg=lbg, ubg=ubg)
+        prob = {'f': J_total, 'x': w, 'g': ca.vertcat(*g), 'p': p}
         if not self.__precomp:
             self.solver = ca.nlpsol('solver', 'ipopt', prob, self.options)
             #self.solver = ca.nlpsol('solver', 'blocksqp', prob, {})
         else:
             import subprocess
             import time
-            #gen_opts = {}
-            gen_opts={'casadi_int': 'long int'} #'casadi_real': 'float' # requires special IPOPT compile flag
+            gen_opts = {}
             solver = ca.nlpsol('solver', 'ipopt', prob, self.options)
             solver.generate_dependencies("nlp.c", gen_opts)
             start = time.time()
@@ -225,8 +174,12 @@ class MPC:
         lb['imp_damp'] = self.mpc_params['B_min']
         ub['imp_mass'] = self.mpc_params['M_max']
         ub['imp_damp'] = self.mpc_params['B_max']
-        lb['u'] = self.__lbu
-        ub['u'] = self.__ubu
+        if self.__N_p == 3:
+            lb['u'] = -self.mpc_params['u_lin_max']
+            ub['u'] = self.mpc_params['u_lin_max']
+        else:
+            lb['u'] = np.append([-self.mpc_params['u_lin_max']*3, -self.mpc_params['u_rot_max']*3])
+            ub['u'] = np.append([ self.mpc_params['u_lin_max']*3,  self.mpc_params['u_rot_max']*3])
         return ub, lb
 
 
