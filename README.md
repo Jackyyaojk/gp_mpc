@@ -18,6 +18,13 @@ Repo also includes code for building/fitting GP models from rosbags and visualiz
 
 Code associated with `https://arxiv.org/abs/2110.12433`
 
+Quickstart:
+ - collect rosbags with force info, put into directory, adjust gp_params.yaml to point to it
+ - python3 -m gp_mpc.control
+
+Validation: python3 -m analysis.validate [--path data/polish_flat/ -f 2.bag 3.bag 4.bag]
+
+
 ## Software Requirements
  - [ ] CasADi
  - [ ] HSL linear solvers (recommended!)

@@ -48,7 +48,7 @@ sim: true
 
 ##### DISTURBANCE REJECTION ####
 dist_rej: 10000
-dist_omega: 10.0
+dist_omega: 30.0
 
 # Outputs and debug
 print_control: true

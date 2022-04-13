@@ -147,7 +147,7 @@ class MPC:
                                 [ca.sum1(self.__vars['imp_mass'][:3])/3.0,
                                  ca.sum1(self.__vars['imp_damp'][:3])/3.0],
                                 symb_type = ty)
-            force_signal = Sys([self.mpc_params['dist_omega'], 0],[self.mpc_params['dist_omega'], 1])
+            force_signal = Sys([1, 0],[1, self.mpc_params['dist_omega']])
             self.dist_signal = admittance_TF*force_signal
             J_total += self.mpc_params['dist_rej']*self.dist_signal.h2(sol = 'scipy')
 
