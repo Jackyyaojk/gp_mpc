@@ -8,7 +8,7 @@ import casadi as ca
 # Custom includes
 from .gp_model import GP
 from .helper_fns import yaml_load, constraints
-from .decision_vars import decision_var_set, decision_var
+from .decision_vars import decision_var_set, param_set, decision_var
 
 class MPC:
     def __init__(self, N_p, mpc_params, gp_dynamics_dict):
@@ -68,7 +68,7 @@ class MPC:
            # MX has smaller memory footprint, SX is faster.  MX helps alot when using autogen C code.
 
         # Symbolic varaibles for parameters, these get assigned to numerical values in solve()
-        params = decision_var_set(ty.sym, params)
+        params = param_set(params, symb_type = ty.sym)
 
         # Initialize empty NLP
         J = {mode:0.0 for mode in self.__modes}     # Objective function
@@ -145,9 +145,9 @@ class MPC:
         # Set up dictionary of arguments to solve
         w, lbw, ubw = self.__vars.get_dec_vectors()
         w0 = self.__vars.get_x0()
-        p, _, _ = params.get_dec_vectors()
+
         self.args = dict(x0=np.zeros(w.shape), lbx=lbw, ubx=ubw, lbg=lbg, ubg=ubg)
-        prob = {'f': J_total, 'x': w, 'g': ca.vertcat(*g), 'p': p}
+        prob = {'f': J_total, 'x': w, 'g': ca.vertcat(*g), 'p': params.get_vector()}
         if not self.__precomp:
             self.solver = ca.nlpsol('solver', 'ipopt', prob, self.options)
             #self.solver = ca.nlpsol('solver', 'blocksqp', prob, {})

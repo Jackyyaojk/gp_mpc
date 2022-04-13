@@ -26,8 +26,7 @@ class decision_var:
         self.lb = np.full(self.shape, lb)
         self.ub = np.full(self.shape, ub)
         self.x = x
-        
-            
+
 #        assert np.all(x0 >= self.lb), "x0 below given lower bound"
 #        assert np.all(x0 <= self.ub), "x0 above given upper bound"
 
@@ -137,10 +136,54 @@ class decision_var_set:
         for key in self.__keys:
             v_size  = self.__vars[key].size
             v_shape = self.__vars[key].shape
-            self.__vars[key].x = x_opt[read_pos:read_pos+v_size].reshape(v_shape)
+            self.__vars[key].x = np.squeeze(ca.reshape(x_opt[read_pos:read_pos+v_size], *v_shape))
             read_pos += v_size
         self.__optimized = True
 
+class param_set:
+    """
+    Helper class for parameters. Simple dictionary which vectorizes
+    """
+    def __init__(self, p = {}, symb_type = None):
+        assert version_info >= (3, 6), "Python 3.6 required to guarantee dicts are ordered"
+        self.__vars = {}   # Dictionary for holding variables
+        self.__keys = []   # List of elements
+        self.__symb_type = symb_type
 
+        for key in p.keys():
+            self[key] = p[key]
 
+    def __setitem__(self, key, value):
+        """
+        # Arguments:
+            key: name of variable
+            value: parameter which should be set there
+        """
+        value = np.asarray(value, float)
+        if self.__symb_type:         # Symbolic parameters
+            self.__vars[key]  = self.__symb_type(key, *value.shape)
+        else:
+            self.__vars[key] = value
+        self.__keys = list(self.__vars.keys())
 
+    def __getitem__(self, key):
+        """
+        Return parameter
+        """
+        if not key in self.__vars: return None
+        return self.__vars[key]
+
+    def __len__(self):
+        return sum(len(val) for val in self.__vars.values())
+
+    def __str__(self):
+        s = "** Parameter **\n"
+        for key in self.__keys:
+            s += "{}:\n: {}\n".format(key, self[key])
+        return s
+
+    def get_vector(self):
+        return vectorize(self.__vars)
+
+def vectorize(dic):
+    return ca.vertcat(*[ca.reshape(el, int(np.prod(el.shape)),1) for el in dic.values()])
