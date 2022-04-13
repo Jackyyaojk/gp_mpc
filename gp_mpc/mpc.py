@@ -54,7 +54,6 @@ class MPC:
 
         self.__vars.set_results(sol['x'])
         self.x_traj = {m:self.__vars['x_'+m] for m in self.__modes}
-        print(self.x_traj)
         self.u_traj = self.__vars['u']
         self.imp_mass = np.squeeze(self.__vars['imp_mass'])
         self.imp_damp = np.squeeze(self.__vars['imp_damp'])
@@ -66,7 +65,7 @@ class MPC:
         N_u = self.__N_p
         ty = ca.MX if self.mpc_params['precomp'] else ca.SX # Type to use for MPC problem
            # MX has smaller memory footprint, SX is faster.  MX helps alot when using autogen C code.
-
+        print(params)
         # Symbolic varaibles for parameters, these get assigned to numerical values in solve()
         params = param_set(params, symb_type = ty.sym)
 
@@ -101,8 +100,8 @@ class MPC:
             Fk_next = self.__F_int[mode](x = ca.horzcat(np.zeros((N_x, 1)), self.__vars['x_'+mode]),
                                          u = self.__vars['u'],
                                          init_pose = params['init_pose'],
-                                         imp_params = ca.vertcat(params['imp_mass'],
-                                                                 params['imp_damp']))
+                                         imp_mass = self.__vars['imp_mass'],
+                                         imp_damp = self.__vars['imp_damp'])
             Xk_next = Fk_next['xf']
             J[mode] += ca.sum2(Fk_next['st_cost'])
 
@@ -126,6 +125,7 @@ class MPC:
                 lbg += list(np.zeros(1))
                 ubg += list(np.full(1, np.inf))
 
+
         # Calculate total objective
         J_total = 0.0
         J_u_total = self.mpc_params['R']*ca.sumsqr(self.__vars['u'])
@@ -141,6 +141,9 @@ class MPC:
             for mode in self.__modes:
                 J_total += belief[mode]*ca.exp(-0.5*self.mpc_params['risk_sens']*(J[mode]))
             J_total = -2/self.mpc_params['risk_sens']*ca.log(J_total)+J_u_total
+
+        #if self.mpc_params['dist_rej']:
+
 
         # Set up dictionary of arguments to solve
         w, lbw, ubw = self.__vars.get_dec_vectors()

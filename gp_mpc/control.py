@@ -116,8 +116,8 @@ class mpc_impedance_control():
             if not send_zeros:
                 start = time.time()
                 params = {'init_pose':self.state,
-                          'imp_mass':self.impedance_params['M'],
-                          'imp_damp':self.impedance_params['B']}
+                          'imp_mass':self.impedance_params['M'][:self.state_dim],
+                          'imp_damp':self.impedance_params['B'][:self.state_dim]}
                 params.update({'belief_'+mode:self.mode_detector.bel[mode] for mode in self.modes})
                 u_opt_traj = self.mpc.solve(params)
                 self.timelist.append((time.time() - start))
@@ -128,7 +128,7 @@ class mpc_impedance_control():
                     prstr += 'mpc {: 6.3f} | '.format(time.time()-start)
                     if self.mpc_params['opti_MBK']:
                         prstr += '\n des M {} | des B {} '\
-                                  .format(-self.mpc.imp_mass, -self.mpc.imp_damp)
+                                  .format(self.mpc.imp_mass, self.mpc.imp_damp)
                         prstr += '\n cur M {} | cur B {} | '.format(self.impedance_params['M'][:self.state_dim],
                                                             self.impedance_params['B'][:self.state_dim] )
                     prstr += 'total {: 6.3f}'.format(time.time()-self.control_time)

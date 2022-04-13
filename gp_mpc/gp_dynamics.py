@@ -41,9 +41,10 @@ class GPDynamics:
         hum_jts = ca.SX.sym('hums', 4) if self.mpc_params['opti_hum_jts'] else []
 
         # Defining parameters
-        imp_params = ca.SX.sym('imp_params_mds',2*N_p)
+        imp_mass = ca.SX.sym('imp_mass',N_p)
+        imp_damp = ca.SX.sym('imp_damp', N_p)
         init_pose = ca.SX.sym('init_pose', 6) # Initial robot pose, position + rotation vector
-        return u, x, x_next, x_pos_cov, hum_jts, imp_params, init_pose
+        return u, x, x_next, x_pos_cov, hum_jts, imp_mass, imp_damp, init_pose
 
     def compliance_to_world(self, init_pose, x):
         # Translate x from being in init_pose frame to world frame.
@@ -67,7 +68,7 @@ class GPDynamics:
         N_p = self.__N_p    # Num of positions in system
         dt = self.__dt      # Time step for discretization
 
-        u, x, x_next, x_pos_cov, hum_jts, imp_params, init_pose = self.build_dec_vars()
+        u, x, x_next, x_pos_cov, hum_jts, imp_mass, imp_damp, init_pose = self.build_dec_vars()
 
         x_w = self.compliance_to_world(init_pose, x)
         f_mu, f_cov = self.__gp.predict(x=x_w, cov=[], fast = self.mpc_params['simplify_cov'])
@@ -76,12 +77,12 @@ class GPDynamics:
         for i in range(N_p):
             #kn = dt*K_k/M_k
             if self.mpc_params['integrator']  == 'implicit':
-                bn = imp_params[i]/(imp_params[i]+dt*imp_params[N_p+i])
+                bn = imp_mass[i]/(imp_mass[i]+dt*imp_damp[i])
             else:
-                bn = ca.exp(-dt*imp_params[N_p+i]/imp_params[i])
+                bn = ca.exp(-dt*imp_damp[i]/imp_mass[i])
 
             # Velocity first b/c that's needed for semi-implicit
-            x_next[i+N_p] =  bn*x[i+N_p]+dt/imp_params[i]*(-f_mu[i]+u[i]) # -kn*x[i]
+            x_next[i+N_p] =  bn*x[i+N_p]+dt/imp_mass[i]*(-f_mu[i]+u[i]) # -kn*x[i]
 
             # Position
             if self.mpc_params['integrator'] == 'explicit':
@@ -95,7 +96,7 @@ class GPDynamics:
             if self.mpc_params['state_cov']:
                 x_next[i+2*N_p] = x[i+2*N_p]+dt*dt*x[i+3*N_p] # cov pos
                 f_cov_tmp = f_cov[0] if self.mpc_params['simplify_cov'] else f_cov[i] 
-                x_next[i+3*N_p] = bn**2*x[i+3*N_p]+10*(dt/imp_params[i])**2*f_cov_tmp
+                x_next[i+3*N_p] = bn**2*x[i+3*N_p]+10*(dt/imp_mass[i])**2*f_cov_tmp
 
         # Define stagecost L, note control costs happen in main MPC problem as control shared btwn modes
         L = self.__Q_vel*ca.sumsqr(x_next[N_p:2*N_p]) + self.__R*ca.sumsqr(u[:3]) + self.__I*ca.sum1(f_cov)
@@ -114,9 +115,9 @@ class GPDynamics:
                 f_joints = self.human_joint_torques_cart(ca.vertcat(x[:3], init_pose[3:]), shoulder_pos, f_mu)
                 L += self.__H_jt*ca.sumsqr(f_joints)
 
-        dynamics = ca.Function('F_int', [x, u, init_pose, imp_params],\
+        dynamics = ca.Function('F_int', [x, u, init_pose, imp_mass, imp_damp],\
                                [x_next, L, f_mu, f_cov, f_joints], \
-                               ['x', 'u', 'init_pose',  'imp_params'], \
+                               ['x', 'u', 'init_pose',  'imp_mass', 'imp_damp'], \
                                ['xf', 'st_cost', 'hum_force_cart', 'f_cov', 'hum_force_joint'] )
              # {"jit":True, "jit_options":{'flags':'-O3'}}) # Can JIT the dynamics, less helpful for typical problem
         return dynamics

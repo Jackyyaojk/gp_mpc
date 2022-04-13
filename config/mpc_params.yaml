@@ -43,11 +43,15 @@ chance_bnd: 0 # 30
 
 well_damped_margin: 0 # 3.0
 
-sim: false
+sim: true
+
+##### DISTURBANCE REJECTION ####
+dist_rej: 1.0
+wc: 30.0
 
 # Outputs and debug
 print_control: true
-live_plot: true    # display the trajectory planning, pretty big perf reduction
+live_plot: false    # display the trajectory planning, pretty big perf reduction
 save_plot: false   # save the trajectory animation
 precomp: false     # precompile the MPC solver
 print_IPOPT: false  # Print MPC output to mpc_log
