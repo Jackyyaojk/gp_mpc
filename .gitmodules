@@ -1,0 +1,3 @@
+[submodule "autodiff_dynamic_systems"]
+	path = autodiff_dynamic_systems
+	url = git@github.com:khaninger/autodiff_dynamic_systems.git

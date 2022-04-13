@@ -45,6 +45,11 @@ well_damped_margin: 0 # 3.0
 
 sim: true
 
+
+##### DISTURBANCE REJECTION ####
+dist_rej: 10000
+dist_omega: 10.0
+
 # Outputs and debug
 print_control: true
 live_plot: false    # display the trajectory planning, pretty big perf reduction

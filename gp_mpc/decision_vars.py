@@ -44,7 +44,7 @@ class decision_var_set:
       - Set optimized results with dec_var_set.set_results(x_opt)
     """
 
-    def __init__(self, var_type = ca.SX.sym, x0 = {}, lb = {}, ub = {}):
+    def __init__(self, symb_type = ca.SX.sym, x0 = {}, lb = {}, ub = {}):
         """
         Arguments:
           - var_type: the type of symbolic optimization variable which should be constructed
@@ -53,7 +53,7 @@ class decision_var_set:
           - lb: optional dict of lower bounds, if no key for a key in x0, will default to -np.inf
         """
         assert version_info >= (3, 6), "Python 3.6 required to guarantee dicts are ordered"
-        self.__ty = var_type     # Type of symbolic variable
+        self.__ty = symb_type     # Type of symbolic variable
         self.__vars = {}         # Individual variables
         self.__optimized = False # Flag if set_results has been called
 

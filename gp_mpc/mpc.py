@@ -9,6 +9,7 @@ import casadi as ca
 from .gp_model import GP
 from .helper_fns import yaml_load, constraints
 from .decision_vars import decision_var_set, param_set, decision_var
+from autodiff_dynamic_systems.autodiff_sys import Sys
 
 class MPC:
     def __init__(self, N_p, mpc_params, gp_dynamics_dict):
@@ -63,9 +64,8 @@ class MPC:
     def build_solver(self, params): # Formulate the NLP for multiple-shooting
         N_x = self.__N_x
         N_u = self.__N_p
-        ty = ca.MX if self.mpc_params['precomp'] else ca.SX # Type to use for MPC problem
+        ty = ca.MX #if self.mpc_params['precomp'] else ca.SX # Type to use for MPC problem
            # MX has smaller memory footprint, SX is faster.  MX helps alot when using autogen C code.
-        print(params)
         # Symbolic varaibles for parameters, these get assigned to numerical values in solve()
         params = param_set(params, symb_type = ty.sym)
 
@@ -86,7 +86,7 @@ class MPC:
         vars['u'] = np.zeros((N_u, self.__N))
 
         ub, lb = self.build_dec_var_constraints()
-        self.__vars = decision_var_set(x0 = vars, ub = ub, lb = lb)
+        self.__vars = decision_var_set(x0 = vars, ub = ub, lb = lb, symb_type = ty.sym)
 
         if self.mpc_params['opti_MBK']:
             g += [self.__vars.get_deviation('imp_mass')]
@@ -142,8 +142,14 @@ class MPC:
                 J_total += belief[mode]*ca.exp(-0.5*self.mpc_params['risk_sens']*(J[mode]))
             J_total = -2/self.mpc_params['risk_sens']*ca.log(J_total)+J_u_total
 
-        #if self.mpc_params['dist_rej']:
-
+        if self.mpc_params['dist_rej']:
+            admittance_TF = Sys([1],
+                                [ca.sum1(self.__vars['imp_mass'][:3])/3.0,
+                                 ca.sum1(self.__vars['imp_damp'][:3])/3.0],
+                                symb_type = ty)
+            force_signal = Sys([self.mpc_params['dist_omega'], 0],[self.mpc_params['dist_omega'], 1])
+            self.dist_signal = admittance_TF*force_signal
+            J_total += self.mpc_params['dist_rej']*self.dist_signal.h2(sol = 'scipy')
 
         # Set up dictionary of arguments to solve
         w, lbw, ubw = self.__vars.get_dec_vectors()

@@ -46,8 +46,8 @@ well_damped_margin: 0 # 3.0
 sim: true
 
 ##### DISTURBANCE REJECTION ####
-dist_rej: 1.0
-wc: 30.0
+dist_rej: 1000000
+dist_omega: 10.0
 
 # Outputs and debug
 print_control: true
