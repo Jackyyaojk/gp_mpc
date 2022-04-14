@@ -18,16 +18,22 @@ Repo also includes code for building/fitting GP models from rosbags and visualiz
 
 Code associated with `https://arxiv.org/abs/2110.12433`
 
-Quickstart:
- - collect rosbags with force info, put into directory, adjust gp_params.yaml to point to it
- - python3 -m gp_mpc.control
-
-Validation: python3 -m analysis.validate [--path data/polish_flat/ -f 2.bag 3.bag 4.bag]
-
 
 ## Software Requirements
- - [ ] CasADi
- - [ ] HSL linear solvers (recommended!)
+ - [ ] CasADi (`python3 -m pip install casadi`)
  - [ ] ROS
+ - [ ] [HSL linear solvers](https://github.com/casadi/casadi/wiki/Obtaining-HSL) (recommended!)
 
+# Quickstart
+ - [ ] Install dependencies
+ - [ ] `git clone https://gitlab.cc-asp.fraunhofer.de/hanikevi/gp-mpc-impedance-control`
+ - [ ] Collect demonstrations:
+   - [ ] `rosbag record -a`
+   - [ ] Do demonstrations. We've mostly tested with three demos, few/more might be OK.
+   - [ ] Adjust `gp_params.yaml` to point to data for each goal/mode
+ - [ ] Re-write the ROS interface
+   - [ ] `helper_fns.py::msg_to_state` - mapping from robot state ROS message to pose [x, r], where x is in meters and r is rotation vector in rad
+   - [ ]   `helper_fns.py::msg_to_obs` mapping from robot ros message to forces [f, t], where f is linear force in robot TCP pose, and t torques
+ - [ ] `python3 -m gp_mpc.control`, optionally with arguments
+ - [ ] validate your results! Can generate plots with `python3 -m analysis.validate` or `rosbag_plot.ipynb`
 
