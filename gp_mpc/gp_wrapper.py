@@ -19,7 +19,7 @@ class gp_model():
     '''
     This class wraps the GP class from gp_model adding modes, data loading, and plotting
     '''
-    def __init__(self, path="", rotation = False):
+    def __init__(self, gp_params, rotation = False):
         self.rotation = rotation
         self.state_dim = 3+3*rotation
 
@@ -27,14 +27,16 @@ class gp_model():
         self.obs    = {}
         self.models = {}
 
-        self.gp_params = yaml_load(path, 'gp_params.yaml')
-        self.path = path
+        #self.gp_params = yaml_load(path, 'gp_params.yaml')
+        self.gp_params = gp_params
+
+        self.path = gp_params["path"]
         self.validate_params()
 
     def validate_params(self):
         # @ Christian this initializes the hyperparameters, handles the dimensions, and sets bounds for the GP
         self.modes = list(self.gp_params['data_path'].keys())
-        if self.gp_params['num_sparse_points'] is not 0:
+        if self.gp_params['num_sparse_points'] != 0:
             print('Sparse GPs: ensuring baseline points is at least 500')
             self.gp_params['num_model_points'] = max(self.gp_params['num_model_points'],500)
 
@@ -50,15 +52,22 @@ class gp_model():
             g_p['noise_var'] = np.append(g_p['noise_var'],\
                     np.full((3,1), self.gp_params['hyper_rot']['noise_var']),0)
         if self.gp_params['mean_func'] in ('const', 'linear', 'hinge'):
-            g_p['mean'] = np.zeros(self.state_dim)
+            #g_p['mean'] = np.zeros((self.state_dim,1))                                                       # Edit  @ Christian init from params values
+            g_p['mean'] = np.array(self.gp_params['mean_init']).reshape(-1,1)
         if self.gp_params['mean_func'] in ('linear', 'hinge'):
-            g_p['linear'] = np.zeros(self.state_dim)
+            #g_p['linear'] = np.zeros((self.state_dim,1))                                                       # Edit  @ Christian init from params values
+            g_p['linear'] = np.array(self.gp_params['linear_init']).reshape(-1,1)
         if self.gp_params['mean_func'] in ('hinge'):
-            g_p['hinge_position'] = np.zeros(self.state_dim)
+            #g_p['hinge_position'] = np.zeros((self.state_dim,1))
+            g_p['hinge_position'] = np.array(self.gp_params['hinge_position_init']).reshape(-1,1)
 
-        if 'mean' in g_p: g_p['mean'] *= np.ones((self.state_dim,1))
-        if 'linear' in g_p: g_p['linear'] *= np.ones((self.state_dim,1))
-        if 'hinge' in g_p: g_p['hinge'] *= np.ones((self.state_dim,1))
+        #if 'mean' in g_p: g_p['mean'] *= np.ones((self.state_dim,1))             # Edit  @ Christian: Numpy not happy - > casting issues
+        #if 'linear' in g_p: g_p['linear'] *= np.ones((self.state_dim,1))
+        #if 'hinge' in g_p: g_p['hinge'] *= np.ones((self.state_dim,1))
+
+        if 'mean' in g_p: g_p['mean'] = g_p['mean'] * np.ones((self.state_dim,1))
+        if 'linear' in g_p: g_p['linear'] = g_p['linear'] * np.ones((self.state_dim,1))
+        if 'hinge' in g_p: g_p['hinge'] = g_p['hinge'] * np.ones((self.state_dim,1))
 
         # Set bounds on hyperparams if optimizing
         self.hyper_lb = {p:0.01 for p in ('length_scale', 'noise_var', 'signal_var')}
@@ -99,7 +108,7 @@ class gp_model():
         self.obs[mode]  += self.gp_params['obs_noise']*np.random.randn(*np.array(self.obs[mode]).shape)
 
         # If desired, make sparse GP with synthetic points
-        if self.gp_params['num_sparse_points'] is not 0:
+        if self.gp_params['num_sparse_points'] != 0:
             print("Sparsifying model!")
             self.sparsify(mode)
 
@@ -238,11 +247,11 @@ class gp_model():
         import matplotlib.pyplot as plt
 
         for mode in self.modes:
-            fig = plt.figure(dpi=200)
-            plt.cla()
+            fig = plt.figure()
+            #plt.cla()                          Edit  @ Christianis ignored anyway and throws error
             ax = fig.gca(projection='3d')
-            fig.tight_layout()
-            fig.subplots_adjust(left=-0.11, right=1.05, bottom=0.0, top=1.0)
+            #fig.tight_layout()
+            #fig.subplots_adjust(left=-0.11, right=1.05, bottom=0.0, top=1.0)
 
             X_data, Y_data = self.models[mode].get_data()
             for X, Y in zip(X_data, Y_data):
@@ -259,6 +268,7 @@ class gp_model():
             ax.set_xlabel('X')
             ax.set_ylabel('Y')
             ax.set_zlabel('Z')
+            ax.set_title('GP for {}, rotation: {}'.format(mode, rot))
             plt.show()
 
     def plot_linear(self, axis = 2):
@@ -270,7 +280,7 @@ class gp_model():
             current_range = self.models[mode].get_xrange()
             state_bounds = [np.minimum(state_bounds[0],current_range[0]),
                             np.maximum(state_bounds[1],current_range[1])]
-        fig = plt.figure(dpi=300)
+        fig = plt.figure()
         ax = fig.gca()
         fig.tight_layout()
 
@@ -290,17 +300,20 @@ class gp_model():
                 mu, cov = self.models[mode].predict(np.concatenate((np.array([x,y,zi]), avg[3:])))
                 meansz.append(mu[2])
                 covs.append(0.5*np.linalg.norm(np.diag(cov)))
+            meansz = np.array(meansz).flatten()
             plt.plot(-z, meansz, color = c, label = mode)
-            meansz = np.array(meansz)
             covs = np.array(covs)
             ax.fill_between(-z, (meansz-covs), (meansz+covs), color=c, alpha=.25)
 
             X_data, Y_data = self.models[mode].get_data()
             plt.plot(-X_data[:,2], Y_data[:,2], '.', color=c, alpha=.25)
+        plt.title('GP for {}, rotation: {}'.format(mode, rot))
         plt.xlabel('Z position (m)')
         plt.ylabel('Z force (N)')
         plt.legend()
         plt.grid(True)
+
+
         plt.show()
 
 

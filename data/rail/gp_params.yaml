@@ -6,12 +6,16 @@ data_path:
 gp_method: ME         # Input uncertainty method, ME = mean equiv, TA = taylor approx
 simplify_cov_axis: 2  # Which axis to use for the reduced cov, default 0
 
-mean_func: zero
+mean_func: hinge #hinge #linear #const #linear
 hyper:                # Following Rasmussen2006
-  length_scale: 0.10   # \ell 
+  length_scale: .010   # \ell 
   noise_var: 12.5     # \sigma_n^2 
-  signal_var: 0.25   # \sigma_f^2
+  signal_var: 2.5   # \sigma_f^2
 
+
+mean_init: [0.1, 0.1, 0.1]
+linear_init: [0.1, 0.1, 0.1]
+hinge_position_init: [0.1, 0.1, 0.1]
 
 hyper_rot:
   length_scale: 0.20
@@ -31,6 +35,6 @@ obs_noise: 0.1 # covariance of noise added to the observations
 opt_hyper: true
 print_hyper: false
 plot: false
-plot_data: false
+plot_data: true
 plot_linear: true
 plot_extension: 0.1

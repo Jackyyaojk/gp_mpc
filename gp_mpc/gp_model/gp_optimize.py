@@ -70,6 +70,10 @@ def train_gp(X, Y, hyper, mean_func='zero', opts={}):
 
     x, lbx, ubx = hyper.get_dec_vectors()
 
+    print("\n_________x__________")
+    print(f" x:{x}")
+    print("\n")
+    
     nlp = {'x': x, 'f': loss}
 
     # NLP solver options

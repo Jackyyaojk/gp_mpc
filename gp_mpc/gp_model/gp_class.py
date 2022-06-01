@@ -29,6 +29,12 @@ class GP:
                ... and any hypperparams used by the mean function
         """
         self.dtype = np.single
+        #print("\n Check params\n")
+        #print(f"hyper :{hyper}")
+        #print(f"hyper_lb :{hyper_lb}")
+        #print(f"hyper_ub :{hyper_ub}")
+        print(f"mean_func :{mean_func}")
+
         self.__hyper = decision_var_set(x0 = hyper, lb = hyper_lb, ub = hyper_ub) # fancy dict wrapper to make opt easier
         self.__gp_method = gp_method
         self.__mean_func = mean_func
