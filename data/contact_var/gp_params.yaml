@@ -1,41 +1,68 @@
 data_path:
-  no_var: !!set
-     man_01.bag: null
-     mix_1.bag: null
-     auto_01.bag: null
-  var: !!set
-    man_21.bag: null
-    mix_2.bag: null
-    auto_01.bag: null
-    auto_21.bag: null
+  # Contact variance, full autonom
+  #var: !!set
+  #  data/contact_var_auto/01.bag: null
+  #  data/contact_var_auto/10.bag: null
+  #  data/contact_var_auto/21.bag: null
+  #human: !!set
+  #  data/contact_var/20.bag: null
+  #  data/contact_var/10.bag: null
+  #  data/contact_var/00.bag: null
+  #mix: !!set
+  #  data/contact_var_mix/1.bag: null
+  #  #data/contact_var_mix/2.bag: null
+  #  data/contact_var/00.bag: null
+  #  data/contact_var_auto/10.bag: null
+  #auto: !!set
+  #  auto_21.bag: null
+  #  auto_10.bag: null
+  #  auto_00.bag: null
+  auto_no_var: !!set
+  #  auto_12.bag: null
+    auto_10.bag: null
+    auto_11.bag: null
+  
 
-gp_method: ME         # Input uncertainty method, ME = mean equiv, TA = taylor approx
-simplify_cov_axis: 2  # Which axis to use for the reduced cov, default 0
+# Contact variance, full human
+  #zero: !!set
+  #  data/contact_var/10.bag: null
+  #  data/contact_var/11.bag: null
+  #  data/contact_var/12.bag: null
+  #var: !!set
+  #  data/contact_var/00.bag: null
+  #  data/contact_var/01.bag: null
+  #  data/contact_var/10.bag: null
+  #  data/contact_var/11.bag: null
+  #  data/contact_var/12.bag: null
+  #  data/contact_var/20.bag: null
+  #  data/contact_var/21.bag: null
+  #  data/contact_var/22.bag: null
+
+gp_method: ME
+simplify_cov_axis: 2        # Which axis to use for the reduced cov (default 0, only nec if kernel not homogeneous)
 
 mean_func: zero
-hyper:                # Following Rasmussen2006
-  length_scale: 0.10   # \ell 
-  noise_var: 12.5     # \sigma_n^2 
-  signal_var: 0.25   # \sigma_f^2
-
+hyper:
+  length_scale: 0.1   # \ell 
+  noise_var: 10.5      # \sigma_n^2 
+  signal_var: 2.25     # \sigma_f^2
 hyper_rot:
   length_scale: 0.20
-  noise_var: 14.0
-  signal_var: 1.8
-
-model_path: GP_models.pkl
+  noise_var: 3.75
+  signal_var: 1.35
+mag_dir: false
+model_path: data/GP_models.pkl
 num_model_points: 50
-
 num_sparse_points: 0
-trim_thresh_force: 0.0 # Data with force less than this are removed 
-trim_thresh_init: 0.05 # Data within this distance of init are removed
-trim_workspace: 1.0 #0.43   # Data with z value higher than this are removed
+trim_thresh_force: 0.0
+trim_thresh_init: 0.05
+trim_workspace: 0.43
+obs_noise: 0.95
 
-obs_noise: 0.1 # covariance of noise added to the observations
-
-opt_hyper: true
+opt_hyper: false
+opt_numeric: false
 print_hyper: false
 plot: false
 plot_data: false
 plot_linear: true
-plot_extension: 0.1
+plot_extension: 0.2

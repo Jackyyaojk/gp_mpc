@@ -144,12 +144,13 @@ class MPC:
 
         if self.mpc_params['dist_rej']:
             admittance_TF = Sys([1],
-                                [ca.sum1(self.__vars['imp_mass'][:3])/3.0,
-                                 ca.sum1(self.__vars['imp_damp'][:3])/3.0],
+                                [ca.sum1(self.__vars['imp_mass'][:1])/3.0,
+                                 ca.sum1(self.__vars['imp_damp'][:1])/3.0],
                                 symb_type = ty)
             force_signal = Sys([1, 0],[1, self.mpc_params['dist_omega']])
             self.dist_signal = admittance_TF*force_signal
-            J_total += self.mpc_params['dist_rej']*self.dist_signal.h2(sol = 'scipy')
+            J_total += self.mpc_params['dist_rej']*self.dist_signal.h2() #sol = 'scipy')
+
 
         # Set up dictionary of arguments to solve
         w, lbw, ubw = self.__vars.get_dec_vectors()

@@ -90,6 +90,10 @@ class decision_var_set:
             s += "{}:\n: {}\n".format(key, self[key])
         return s
 
+    def skip_opt(self):
+        for key in self.__vars.keys():
+            self.__vars[key].x = self.__vars[key].x0
+
     def filter(self, to_ignore = [], ignore_numeric = False):
         """
         Returns the decision variables or optimized values not in the to_ignore list.

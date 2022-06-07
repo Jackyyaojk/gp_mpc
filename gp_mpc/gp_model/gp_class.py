@@ -58,6 +58,8 @@ class GP:
 
     def train_model(self, opt_hyper):
         if opt_hyper: self.__hyper = train_gp(self.__X, self.__Y, self.__hyper, mean_func = self.__mean_func)
+        else:
+            self.__hyper.skip_opt()
 
     def build_model(self):
         """

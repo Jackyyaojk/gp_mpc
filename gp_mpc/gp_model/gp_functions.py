@@ -60,6 +60,7 @@ def build_mean_func(N, Nx, Ny, hyper, mean_func='zero', build_const = False):
 
     # Get the symbolic mean function variables
     sym_mean_params = hyper.filter(to_ignore = ['length_scale', 'noise_var', 'signal_var'], ignore_numeric = True)
+    
     return ca.Function('mean', [X_s, *sym_mean_params.values()],[m])
 
 def build_gp(invK, X, hyper, alpha, chol, fast_gp_axis, mean_func='zero', build_const = False, jit_opts = {}):
