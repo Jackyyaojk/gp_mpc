@@ -54,7 +54,7 @@ def build_mean_func(N, Nx, Ny, hyper, mean_func='zero', build_const = False):
         for out in range(Ny):
             for n in range(N):
                 #m[n,out] = ca.mtimes(hyper['linear'].T, ca.fmax(X_s[n,:].T,hyper['hinge']))+hyper['mean'][out]
-                m[n,out] = ca.mtimes(hyper['linear'][out], ca.fmax(X_s[n,out],hyper['hinge_position'][out]))+hyper['mean'][out]
+                m[n,out] = ca.mtimes(hyper['linear'][out], -ca.fmax(-X_s[n,out],-hyper['hinge_position'][out]))+hyper['mean'][out]
     else:
         raise NameError('No mean function called: ' + mean_func)
 

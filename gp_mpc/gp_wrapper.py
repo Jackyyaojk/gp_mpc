@@ -286,7 +286,7 @@ class gp_model():
         exp = 0.1
         x = 0.5*(state_bounds[0][0]+state_bounds[1][0])
         y = 0.5*(state_bounds[0][1]+state_bounds[1][1])
-        z = np.linspace(state_bounds[0][2]-exp, state_bounds[1][2]+exp, 35)
+        z = np.linspace(state_bounds[0][2]-exp, state_bounds[1][2]+exp, 75)
 
         z = z.flatten()
         colors = ['r','g','b']

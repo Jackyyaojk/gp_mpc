@@ -10,6 +10,9 @@ import rosbag
 import numpy as np
 import matplotlib.pyplot as plt
 
+import pickle
+from mpl_toolkits.mplot3d import axes3d
+
 from gp_mpc.gp_wrapper import gp_model
 from gp_mpc.control import start_node
 from gp_mpc.helper_fns import yaml_load
@@ -86,9 +89,7 @@ def map_delta_impedance_gains(msg, prev_msgs):
     prev_msgs['Fd'].append(msg.effort[len(msg.position):])
     
 def plot_model_cov(model_path, ext = 0.05):
-    import pickle
-    from mpl_toolkits.mplot3d import axes3d
-    import matplotlib.pyplot as plt
+
     
     with open(model_path, 'rb') as f:
         models = pickle.load(f)
@@ -161,13 +162,15 @@ if __name__ == "__main__":
             subprocess.Popen(["python3", "-m" "gp_mpc.control", "--path", args.path])
             sleep(1.0)
             subprocess.Popen(["rosbag", "record", "-a","-O","".join([args.path, "validate_", fi])])
-            os.system("".join(["rosbag play -r 0.5 ", args.path, fi, " && rosnode kill -a"]))
+            os.system("".join(["rosbag play -r 1.0 ", args.path, fi, " && rosnode kill -a"]))
 
-    fig, ax = plot_model_cov(model_path)
+    fig = plt.figure(dpi=200)
+    ax = fig.gca(projection='3d')
+    # fig, ax =  plot_model_cov(model_path)
 
-    scale_B = 0.00003
-    scale_M = 0.001
-    num_plot_pts = 150
+    scale_B = 0.00002
+    scale_M = 0.002
+    num_plot_pts = 50
 
     for bag in ["".join([args.path, "validate_", fi]) for fi in files]:
         imp_msgs = bag_loader(bag, map_impedance_gains, topic_name = 'impedance_gains_sim')
@@ -176,7 +179,6 @@ if __name__ == "__main__":
         state_msgs_aligned = get_aligned_msgs(imp_msgs, state_msgs)
 
         subsample_rate = int(state_msgs_aligned['pos'].shape[1]/num_plot_pts)
-        print(subsample_rate)
         skipcnt = 0
         for p, B, M  in zip(state_msgs_aligned['pos'].T, imp_msgs['B'].T, imp_msgs['M'].T):
             if skipcnt > subsample_rate:
@@ -185,10 +187,11 @@ if __name__ == "__main__":
                 skipcnt += 1
                 continue
 
+            rot = 0.15
             line_damp = ax.plot([p[0]-scale_B*B[1], p[0]+scale_B*B[1]],
-                    [p[1], p[1]],
+                    [p[1]-scale_B*rot*B[1], p[1]+scale_B*rot*B[1]],
                     [p[2], p[2]],'r', label = 'Damping')[0]
-            ax.plot([p[0], p[0]],
+            ax.plot([p[0]+scale_B*rot*B[0], p[0]-scale_B*rot*B[0]],
                     [p[1]-scale_B*B[0], p[1]+scale_B*B[0]],
                     [p[2], p[2]],'r')
             ax.plot([p[0], p[0]],
@@ -196,14 +199,14 @@ if __name__ == "__main__":
                     [p[2]-scale_B*B[2], p[2]+scale_B*B[2]],'r')
             p = p + 0.0005*np.ones(6)
             line_mass = ax.plot([p[0]-scale_M*M[1], p[0]+scale_M*M[1]],
-                    [p[1], p[1]],
+                    [p[1]-scale_M*rot*M[1], p[1]+scale_M*rot*M[1]],
                     [p[2], p[2]],'b', label = 'Mass')[0]
-            ax.plot([p[0], p[0]],
+            ax.plot([p[0]+scale_M*rot*M[0], p[0]-scale_M*rot*M[0]],
                     [p[1]-scale_M*M[0], p[1]+scale_M*M[0]],
                     [p[2], p[2]],'b')
             ax.plot([p[0], p[0]],
                     [p[1], p[1]],
                     [p[2]-scale_M*M[2], p[2]+scale_M*M[2]],'b')
-
+        ax.view_init(elev=90, azim=0)
     plt.legend(handles=[line_damp, line_mass],labels=['Damping', 'Mass'])
     plt.show()
