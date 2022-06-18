@@ -13,9 +13,9 @@ hyper:                # Following Rasmussen2006
   signal_var: 2.5   # \sigma_f^2
 
 
-mean_init: [0.1, 0.1, 0.1]
+mean_init: [0.0, 0.0, 0.0]
 linear_init: [0.1, 0.1, 0.1]
-hinge_position_init: [0.1, 0.1, 0.1]
+hinge_position_init: [0.0, 0.0, 0.6]
 
 hyper_rot:
   length_scale: 0.20
@@ -37,4 +37,4 @@ print_hyper: false
 plot: false
 plot_data: true
 plot_linear: true
-plot_extension: 0.1
+plot_extension: 0.3

@@ -140,6 +140,7 @@ class decision_var_set:
         for key in self.__keys:
             v_size  = self.__vars[key].size
             v_shape = self.__vars[key].shape
+            if len(v_shape) == 1: v_shape = (*v_shape,1)
             self.__vars[key].x = np.squeeze(ca.reshape(x_opt[read_pos:read_pos+v_size], *v_shape))
             read_pos += v_size
         self.__optimized = True

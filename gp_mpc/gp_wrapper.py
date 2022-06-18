@@ -33,7 +33,6 @@ class gp_model():
         self.validate_params()
 
     def validate_params(self):
-        # @ Christian this initializes the hyperparameters, handles the dimensions, and sets bounds for the GP
         self.modes = list(self.gp_params['data_path'].keys())
         if self.gp_params['num_sparse_points'] != 0:
             print('Sparse GPs: ensuring baseline points is at least 500')
@@ -52,21 +51,13 @@ class gp_model():
                     np.full((3,1), self.gp_params['hyper_rot']['noise_var']),0)
         if self.gp_params['mean_func'] in ('const', 'linear', 'hinge'):
             #g_p['mean'] = np.zeros((self.state_dim,1))                                                       # Edit  @ Christian init from params values
-            g_p['mean'] = np.array(self.gp_params['mean_init']).reshape(-1,1)
+            g_p['mean'] = np.array(self.gp_params['mean_init'])#.reshape(-1,1)
         if self.gp_params['mean_func'] in ('linear', 'hinge'):
             #g_p['linear'] = np.zeros((self.state_dim,1))                                                       # Edit  @ Christian init from params values
-            g_p['linear'] = np.array(self.gp_params['linear_init']).reshape(-1,1)
+            g_p['linear'] = np.array(self.gp_params['linear_init'])#.reshape(-1,1)
         if self.gp_params['mean_func'] in ('hinge'):
             #g_p['hinge_position'] = np.zeros((self.state_dim,1))
-            g_p['hinge_position'] = np.array(self.gp_params['hinge_position_init']).reshape(-1,1)
-
-        #if 'mean' in g_p: g_p['mean'] *= np.ones((self.state_dim,1))             # Edit  @ Christian: Numpy not happy - > casting issues
-        #if 'linear' in g_p: g_p['linear'] *= np.ones((self.state_dim,1))
-        #if 'hinge' in g_p: g_p['hinge'] *= np.ones((self.state_dim,1))
-
-        if 'mean' in g_p: g_p['mean'] = g_p['mean'] * np.ones((self.state_dim,1))
-        if 'linear' in g_p: g_p['linear'] = g_p['linear'] * np.ones((self.state_dim,1))
-        if 'hinge' in g_p: g_p['hinge'] = g_p['hinge'] * np.ones((self.state_dim,1))
+            g_p['hinge_position'] = np.array(self.gp_params['hinge_position_init'])#.reshape(-1,1)
 
         # Set bounds on hyperparams if optimizing
         self.hyper_lb = {p:0.01 for p in ('length_scale', 'noise_var', 'signal_var')}

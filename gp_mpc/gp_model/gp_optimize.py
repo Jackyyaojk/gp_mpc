@@ -31,7 +31,8 @@ def calc_NLL(hyper, X, Y, mean_func='zero'):
     alphas, Ls, invKs = build_matrices(X, Y, hyper, mean_func = mean_func)
     NLL  = 0
 
-    mean_params = hyper.filter(to_ignore = ['length_scale', 'noise_var', 'signal_var'])
+    mean_params = hyper.filter(to_ignore = ['length_scale', 'noise_var', 'signal_var'],
+                               ignore_numeric = True)
     mean = m(X, *mean_params.values()) # get the value of mean fn at X
     for i, (alpha, L, invK) in enumerate(zip(alphas, Ls, invKs)):
         NLL += 0.5 * (Y[:,i]-mean[:,i]).T@alpha
@@ -69,11 +70,7 @@ def train_gp(X, Y, hyper, mean_func='zero', opts={}):
     loss += 3*ca.sumsqr(hyper.get_deviation('signal_var'))
 
     x, lbx, ubx = hyper.get_dec_vectors()
-
-    print("\n_________x__________")
-    print(f" x:{x}")
-    print("\n")
-    
+ 
     nlp = {'x': x, 'f': loss}
 
     # NLP solver options
