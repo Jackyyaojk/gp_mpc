@@ -125,7 +125,6 @@ class MPC:
                 lbg += list(np.zeros(1))
                 ubg += list(np.full(1, np.inf))
 
-
         # Calculate total objective
         J_total = 0.0
         J_u_total = self.mpc_params['R']*ca.sumsqr(self.__vars['u'])

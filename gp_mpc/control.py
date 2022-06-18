@@ -49,7 +49,7 @@ class mpc_impedance_control():
                                  'K': np.zeros(self.state_dim),
                                  'Fd': np.zeros(self.state_dim)}
 
-        # Init Dynamic Modes
+        # Init dynamics for each mode
         self.gp_dynamics_dict = { mode: GPDynamics(N_p = self.state_dim,
                                                    mpc_params = self.mpc_params,
                                                    gp = self.models[mode] )\
@@ -68,7 +68,8 @@ class mpc_impedance_control():
                                             Float64MultiArray, queue_size = 1)
         self.pub_control = rospy.Publisher ('delta_impedance_gains',
                                             JointState, queue_size = 1)
-        if self.mpc_params['sim']: self.pub_imp = rospy.Publisher('impedance_gains_sim', JointState, queue_size = 1)
+        if self.mpc_params['sim']: self.pub_imp = rospy.Publisher('impedance_gains_sim',
+                                                                  JointState, queue_size = 1)
 
         # Init animation
         if self.mpc_params['live_plot'] or self.mpc_params['save_plot']:  self.animate_init()
@@ -105,14 +106,16 @@ class mpc_impedance_control():
     # Main control loop, update belief, do MPC calc, send out the updated params
     def control(self, send_zeros = False):
         if not self.recieved_robot_state: return
-        prstr = ''
+        prstr = ''  # Print string
+
+        # Belief
         if self.mode_detector_params['print_belief']:
             prstr += 'Bel '
             for mode in self.modes:
                 prstr += mode + ':' + '{: 6.3f}'.format(self.mode_detector.bel[mode])+' | '
 
+        # MPC calc
         if not rospy.is_shutdown():
-            des_force = np.zeros(self.state_dim)
             if not send_zeros:
                 start = time.time()
                 params = {'init_pose':self.state,
@@ -150,24 +153,18 @@ class mpc_impedance_control():
                                        des_mass = self.mpc.imp_mass)
 
     # Build and publish the ROS messages
-    def build_and_publish(self, des_force = None,
-                          des_damp = None, des_mass = None,
-                          d_damp = None, d_mass = None):
+    def build_and_publish(self, des_force = None, des_damp = None, des_mass = None):
             msg_control = JointState()
             msg_control.position = np.zeros(6)
             msg_control.velocity = np.zeros(6)
             msg_control.effort = np.zeros(12)
             msg_control.header.stamp = rospy.Time.now()
-            des_force = 0.5*(des_force-self.impedance_params['Fd'][:self.state_dim]) #to handle oscilation due to delay
+            des_force = 0.7*(des_force-self.impedance_params['Fd'][:self.state_dim]) #to handle oscilation due to delay
             msg_control.effort[6:6+self.state_dim] = des_force
             if des_damp is not None:
                 msg_control.velocity = 0.7*(des_damp - self.impedance_params['B'][:self.state_dim])
             if des_mass is not None:
                 msg_control.effort[:self.state_dim] = 0.7*(des_mass - self.impedance_params['M'][:self.state_dim])
-            if d_damp is not None :
-                msg_control.velocity[:self.state_dim] = d_damp
-            if d_mass is not None:
-                msg_control.effort[:self.state_dim] = d_mass
             if not rospy.is_shutdown():
                 self.pub_control.publish(msg_control)
                 if self.mpc_params['sim']:

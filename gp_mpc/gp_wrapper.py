@@ -60,7 +60,7 @@ class gp_model():
             g_p['hinge_position'] = np.array(self.gp_params['hinge_position_init'])#.reshape(-1,1)
 
         # Set bounds on hyperparams if optimizing
-        self.hyper_lb = {p:0.01 for p in ('length_scale', 'noise_var', 'signal_var')}
+        self.hyper_lb = {p:0.005 for p in ('length_scale', 'noise_var', 'signal_var')}
         self.hyper_ub = {'length_scale':1.0, 'noise_var':28.0, 'signal_var':20.0}
 
     def load_models(self, rebuild = True):
@@ -270,14 +270,14 @@ class gp_model():
             current_range = self.models[mode].get_xrange()
             state_bounds = [np.minimum(state_bounds[0],current_range[0]),
                             np.maximum(state_bounds[1],current_range[1])]
-        fig = plt.figure()
+        fig = plt.figure(figsize=(6,3), dpi = 200)
         ax = fig.gca()
         fig.tight_layout()
 
-        exp = 0.1
+        exp = 0.01
         x = 0.5*(state_bounds[0][0]+state_bounds[1][0])
         y = 0.5*(state_bounds[0][1]+state_bounds[1][1])
-        z = np.linspace(state_bounds[0][2]-exp, state_bounds[1][2]+exp, 35)
+        z = np.linspace(state_bounds[0][2]-exp, state_bounds[1][2]+exp, 175)
 
         z = z.flatten()
         colors = ['r','g','b']
@@ -297,13 +297,15 @@ class gp_model():
 
             X_data, Y_data = self.models[mode].get_data()
             plt.plot(-X_data[:,2], Y_data[:,2], '.', color=c, alpha=.25)
-        plt.title('GP for {}, rotation: {}'.format(mode, rot))
+        #plt.title('GP for {}, rotation: {}'.format(mode, rot))
         plt.xlabel('Z position (m)')
         plt.ylabel('Z force (N)')
         plt.legend()
         plt.grid(True)
+        plt.tight_layout()
 
 
+        plt.ylim((-80,200))
         plt.show()
 
 

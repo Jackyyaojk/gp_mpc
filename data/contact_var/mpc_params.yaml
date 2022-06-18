@@ -33,14 +33,14 @@ opti_MBK: true             # Jointly optimize M/B/K params
 opti_hum_shoulder: false    # Optimize the human shoulder position
 opti_hum_jts: false         # Optimize the human joint positions
 
-mpc_pts: 5
+mpc_pts: 4
 dt: 0.13 # 0.095
 constraint_slack: 0.0
 bound_relax_factor: 1e-5
 
 well_damped_margin: 0
 
-chance_prob: 0.9 #0.9
+chance_prob: 0.0 #0.9
 chance_bnd: 20 #30
 
 sim: true
