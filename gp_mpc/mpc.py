@@ -120,8 +120,8 @@ class MPC:
 
             if self.mpc_params['well_damped_margin'] != 0.0:
                 print('Adding well-damped constraint')
-                Ke = ca.fabs(self.__gp_dynamics[mode].gp_grad(Xk[mode][:self.__N_p,-1]))[2]
-                g += [imp_params[self.__N_p+2]-4*imp_params[2]*Ke-self.mpc_params['well_damped_margin']]
+                Ke = ca.fabs(self.__gp_dynamics[mode].gp_grad(self.__vars['x_'+mode][:self.__N_p,-1]))[2]
+                g += [self.__vars['imp_damp'][2]-2*ca.sqrt(self.__vars['imp_mass'][2]*Ke)*self.mpc_params['well_damped_margin']]
                 lbg += list(np.zeros(1))
                 ubg += list(np.full(1, np.inf))
 
@@ -131,6 +131,7 @@ class MPC:
         if self.mpc_params['opti_MBK']:
             J_u_total += self.mpc_params['delta_M_cost']*ca.sumsqr(self.__vars.get_deviation('imp_mass'))
             J_u_total += self.mpc_params['delta_B_cost']*ca.sumsqr(self.__vars.get_deviation('imp_damp'))
+            J_u_total += self.mpc_params['M_cost']*ca.sumsqr(self.__vars['imp_mass'])
 
         if self.mpc_params['risk_sens'] == 0: # Expected cost
             J_total = J_u_total

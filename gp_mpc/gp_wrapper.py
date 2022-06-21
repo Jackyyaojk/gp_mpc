@@ -53,7 +53,7 @@ class gp_model():
             #g_p['mean'] = np.zeros((self.state_dim,1))                                                       # Edit  @ Christian init from params values
             g_p['mean'] = np.array(self.gp_params['mean_init'])#.reshape(-1,1)
         if self.gp_params['mean_func'] in ('linear', 'hinge'):
-            #g_p['linear'] = np.zeros((self.state_dim,1))                                                       # Edit  @ Christian init from params values
+            #g_p['linear'] = np.zeros((self.state_dim,1))                                                      # Edit  @ Christian init from params values
             g_p['linear'] = np.array(self.gp_params['linear_init'])#.reshape(-1,1)
         if self.gp_params['mean_func'] in ('hinge'):
             #g_p['hinge_position'] = np.zeros((self.state_dim,1))
@@ -284,12 +284,12 @@ class gp_model():
         for mode in self.modes:
             meansz = []
             covs   = []
-            avg = self.models[mode].get_mean_state() 
+            avg = self.models[mode].get_mean_state()
             c = colors.pop()
             for zi in z:
                 mu, cov = self.models[mode].predict(np.concatenate((np.array([x,y,zi]), avg[3:])))
                 meansz.append(mu[2])
-                covs.append(0.5*np.linalg.norm(np.diag(cov)))
+                covs.append(cov[2]) #1.5*np.linalg.norm(np.diag(cov)))
             meansz = np.array(meansz).flatten()
             plt.plot(-z, meansz, color = c, label = mode)
             covs = np.array(covs)
@@ -305,7 +305,7 @@ class gp_model():
         plt.tight_layout()
 
 
-        plt.ylim((-80,200))
+        plt.ylim((-90,200))
         plt.show()
 
 
