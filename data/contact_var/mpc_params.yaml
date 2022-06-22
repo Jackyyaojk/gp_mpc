@@ -2,17 +2,18 @@
 #### COST FUNCTION PARAMETERS  ####
 H: 5.0        # Human force cost
 H_jt: 0.0   # Human joint cost
-I: 1570      # Human force covariance cos 
+I: 2000      # Human force covariance cos 
 Q_pos: 0.0  # Position cost
 Q_vel: 0.1  # Velocity cost
-S: 100     # State covariance cost
+S: 10     # State covariance cost
 
 R: 0.30     # Contol cost
 u_lin_max: 20.0 # Max linear force (N)
 
 delta_B_cost: 0.0005
 delta_M_cost: 0.05
-M_cost: 500
+M_cost: 1000
+B_cost: 0.05
 delta_B_max: 10
 delta_M_max: 0.2
 B_min: 600
@@ -34,15 +35,15 @@ opti_MBK: true             # Jointly optimize M/B/K params
 opti_hum_shoulder: false    # Optimize the human shoulder position
 opti_hum_jts: false         # Optimize the human joint positions
 
-mpc_pts: 4
-dt: 0.05 # 0.095
+mpc_pts: 5
+dt: 0.06 # 0.095
 constraint_slack: 0.0
 bound_relax_factor: 1e-5
 
-well_damped_margin: 10.0 # 10.0
+well_damped_margin: 30.0 # 10.0
 
 chance_prob: 0.0 #0.9
-chance_bnd: 0.0 #30
+chance_bnd: 0.0 #-50
 
 sim: true
 

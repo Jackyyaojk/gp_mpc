@@ -132,6 +132,7 @@ class MPC:
             J_u_total += self.mpc_params['delta_M_cost']*ca.sumsqr(self.__vars.get_deviation('imp_mass'))
             J_u_total += self.mpc_params['delta_B_cost']*ca.sumsqr(self.__vars.get_deviation('imp_damp'))
             J_u_total += self.mpc_params['M_cost']*ca.sumsqr(self.__vars['imp_mass'])
+            J_u_total += self.mpc_params['B_cost']*ca.sumsqr(self.__vars['imp_damp'])
 
         if self.mpc_params['risk_sens'] == 0: # Expected cost
             J_total = J_u_total
