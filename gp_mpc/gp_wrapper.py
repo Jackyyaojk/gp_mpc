@@ -274,12 +274,17 @@ class gp_model():
         ax = fig.gca()
         fig.tight_layout()
 
-        exp = 0.01
+        exp = 0.03
         x = 0.5*(state_bounds[0][0]+state_bounds[1][0])
         y = 0.5*(state_bounds[0][1]+state_bounds[1][1])
-        z = np.linspace(state_bounds[0][2]-exp, state_bounds[1][2]+exp, 175)
+        z = np.linspace(state_bounds[0][2]-exp, state_bounds[1][2]+exp, 275)
 
         z = z.flatten()
+        plt.plot((-.33885, -.31885),(0, 2100.0), color='k', label='contact forces', linewidth=4.0)
+        cnt_pt = -.33885
+        env_stiff = 105000
+        #plt.plot((cnt_pt, cnt_pt), (-100, 300.0), color='k', label='env contact', linewidth=2.0)
+        ax.fill_between((cnt_pt, cnt_pt+0.1), (-100, -100), (300, 300), color='k', alpha=.25)
         colors = ['r','g','b']
         for mode in self.modes:
             meansz = []
@@ -291,21 +296,31 @@ class gp_model():
                 meansz.append(mu[2])
                 covs.append(cov[2]) #1.5*np.linalg.norm(np.diag(cov)))
             meansz = np.array(meansz).flatten()
-            plt.plot(-z, meansz, color = c, label = mode)
+            plt.plot(-z, meansz, color = c, label = mode+' model')
             covs = np.array(covs)
             ax.fill_between(-z, (meansz-covs), (meansz+covs), color=c, alpha=.25)
 
             X_data, Y_data = self.models[mode].get_data()
             plt.plot(-X_data[:,2], Y_data[:,2], '.', color=c, alpha=.25)
-        #plt.title('GP for {}, rotation: {}'.format(mode, rot))
+
+
+            #plt.title('GP for {}, rotation: {}'.format(mode, rot))
+
+
         plt.xlabel('Z position (m)')
         plt.ylabel('Z force (N)')
         plt.legend()
         plt.grid(True)
+        
+
         plt.tight_layout()
 
 
+        
+
         plt.ylim((-90,200))
+        plt.xlim((-0.39, -0.33))
+
         plt.show()
 
 
