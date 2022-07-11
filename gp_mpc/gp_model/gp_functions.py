@@ -48,22 +48,24 @@ def build_mean_func(N, Nx, Ny, hyper, mean_func='zero', build_const = False):
     elif mean_func == 'linear': # not tested, written Langagker
         for out in range(Ny):
             for n in range(N):
-                #m[n,out] = ca.mtimes(hyper['linear'].T, X_s[n,:].T) + hyper['mean'][out]
                 m[n,out] = ca.mtimes(hyper['linear'][out], X_s[n,out]) + hyper['mean'][out]
     elif mean_func == 'hinge': # not tested, new function
         for out in range(Ny):
             for n in range(N):
-                #m[n,out] = ca.mtimes(hyper['linear'].T, ca.fmax(X_s[n,:].T,hyper['hinge']))+hyper['mean'][out]
-                m[n,out] = ca.mtimes(hyper['linear'][out], -ca.fmax(-X_s[n,out],-hyper['hinge_position'][out]))+hyper['mean'][out]
+                m[n,out] = ca.mtimes(hyper['linear'][out],
+                                     ca.fmax(0, -X_s[n,out]+hyper['hinge_position'][out])) \
+                            + hyper['mean'][out]
     else:
         raise NameError('No mean function called: ' + mean_func)
 
     # Get the symbolic mean function variables
-    sym_mean_params = hyper.filter(to_ignore = ['length_scale', 'noise_var', 'signal_var'], ignore_numeric = True)
-    
+    sym_mean_params = hyper.filter(to_ignore = ['length_scale', 'noise_var', 'signal_var'],
+                                   ignore_numeric = True)
+
     return ca.Function('mean', [X_s, *sym_mean_params.values()],[m])
 
-def build_gp(invK, X, hyper, alpha, chol, fast_gp_axis, mean_func='zero', build_const = False, jit_opts = {}):
+def build_gp(invK, X, hyper, alpha, chol, fast_gp_axis, mean_func='zero',
+             build_const = False, jit_opts = {}):
     """ Build Gaussian Process function optimized for comp. graph and speed
         - hyper are consts, not symbolics
         - alpha is a const, not symbolic
@@ -142,7 +144,9 @@ def build_matrices(X, Y, hyper, mean_func, build_const = False):
 
         m = build_mean_func(N, Nx, Ny, hyper, mean_func = mean_func, build_const = build_const)
 
-        mean_params = hyper.filter(to_ignore = ['length_scale', 'noise_var', 'signal_var'], ignore_numeric = build_const)
+        mean_params = hyper.filter(to_ignore = ['length_scale', 'noise_var', 'signal_var'],
+                                   ignore_numeric = build_const)
+
         mean = m(X, *mean_params.values())
 
         for output in range(Ny):

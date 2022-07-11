@@ -34,6 +34,6 @@ Code associated with `https://arxiv.org/abs/2110.12433`
  - [ ] Re-write the ROS interface
    - [ ] `helper_fns.py::msg_to_state` - mapping from robot state ROS message to pose [x, r], where x is in meters and r is rotation vector in rad
    - [ ]   `helper_fns.py::msg_to_obs` mapping from robot ros message to forces [f, t], where f is linear force in robot TCP pose, and t torques
- - [ ] `python3 -m gp_mpc.control`, optionally with arguments
- - [ ] validate your results! Can generate plots with `python3 -m analysis.validate` or `rosbag_plot.ipynb`
+ - [ ] `python3 -m gp_mpc.control`, optionally with arguments, e.g. `--path data/contact_var/` or `--rebuild_gp`
+ - [ ] validate your results! Can generate plots with `python3 -m analysis.validate` or `analysis/rosbag_plot.ipynb`
 

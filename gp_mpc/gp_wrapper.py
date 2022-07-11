@@ -33,7 +33,6 @@ class gp_model():
         self.validate_params()
 
     def validate_params(self):
-        # @ Christian this initializes the hyperparameters, handles the dimensions, and sets bounds for the GP
         self.modes = list(self.gp_params['data_path'].keys())
         if self.gp_params['num_sparse_points'] != 0:
             print('Sparse GPs: ensuring baseline points is at least 500')
@@ -52,24 +51,16 @@ class gp_model():
                     np.full((3,1), self.gp_params['hyper_rot']['noise_var']),0)
         if self.gp_params['mean_func'] in ('const', 'linear', 'hinge'):
             #g_p['mean'] = np.zeros((self.state_dim,1))                                                       # Edit  @ Christian init from params values
-            g_p['mean'] = np.array(self.gp_params['mean_init']).reshape(-1,1)
+            g_p['mean'] = np.array(self.gp_params['mean_init'])#.reshape(-1,1)
         if self.gp_params['mean_func'] in ('linear', 'hinge'):
-            #g_p['linear'] = np.zeros((self.state_dim,1))                                                       # Edit  @ Christian init from params values
-            g_p['linear'] = np.array(self.gp_params['linear_init']).reshape(-1,1)
+            #g_p['linear'] = np.zeros((self.state_dim,1))                                                      # Edit  @ Christian init from params values
+            g_p['linear'] = np.array(self.gp_params['linear_init'])#.reshape(-1,1)
         if self.gp_params['mean_func'] in ('hinge'):
             #g_p['hinge_position'] = np.zeros((self.state_dim,1))
-            g_p['hinge_position'] = np.array(self.gp_params['hinge_position_init']).reshape(-1,1)
-
-        #if 'mean' in g_p: g_p['mean'] *= np.ones((self.state_dim,1))             # Edit  @ Christian: Numpy not happy - > casting issues
-        #if 'linear' in g_p: g_p['linear'] *= np.ones((self.state_dim,1))
-        #if 'hinge' in g_p: g_p['hinge'] *= np.ones((self.state_dim,1))
-
-        if 'mean' in g_p: g_p['mean'] = g_p['mean'] * np.ones((self.state_dim,1))
-        if 'linear' in g_p: g_p['linear'] = g_p['linear'] * np.ones((self.state_dim,1))
-        if 'hinge' in g_p: g_p['hinge'] = g_p['hinge'] * np.ones((self.state_dim,1))
+            g_p['hinge_position'] = np.array(self.gp_params['hinge_position_init'])#.reshape(-1,1)
 
         # Set bounds on hyperparams if optimizing
-        self.hyper_lb = {p:0.01 for p in ('length_scale', 'noise_var', 'signal_var')}
+        self.hyper_lb = {p:0.005 for p in ('length_scale', 'noise_var', 'signal_var')}
         self.hyper_ub = {'length_scale':1.0, 'noise_var':28.0, 'signal_var':20.0}
 
     def load_models(self, rebuild = True):
@@ -279,39 +270,56 @@ class gp_model():
             current_range = self.models[mode].get_xrange()
             state_bounds = [np.minimum(state_bounds[0],current_range[0]),
                             np.maximum(state_bounds[1],current_range[1])]
-        fig = plt.figure()
+        fig = plt.figure(figsize=(6,3), dpi = 200)
         ax = fig.gca()
         fig.tight_layout()
 
-        exp = 0.1
+        exp = 0.03
         x = 0.5*(state_bounds[0][0]+state_bounds[1][0])
         y = 0.5*(state_bounds[0][1]+state_bounds[1][1])
-        z = np.linspace(state_bounds[0][2]-exp, state_bounds[1][2]+exp, 75)
+        z = np.linspace(state_bounds[0][2]-exp, state_bounds[1][2]+exp, 275)
 
         z = z.flatten()
+        plt.plot((-.33885, -.31885),(0, 2100.0), color='k', label='contact forces', linewidth=4.0)
+        cnt_pt = -.33885
+        env_stiff = 105000
+        #plt.plot((cnt_pt, cnt_pt), (-100, 300.0), color='k', label='env contact', linewidth=2.0)
+        ax.fill_between((cnt_pt, cnt_pt+0.1), (-100, -100), (300, 300), color='k', alpha=.25)
         colors = ['r','g','b']
         for mode in self.modes:
             meansz = []
             covs   = []
-            avg = self.models[mode].get_mean_state() 
+            avg = self.models[mode].get_mean_state()
             c = colors.pop()
             for zi in z:
                 mu, cov = self.models[mode].predict(np.concatenate((np.array([x,y,zi]), avg[3:])))
                 meansz.append(mu[2])
-                covs.append(0.5*np.linalg.norm(np.diag(cov)))
+                covs.append(cov[2]) #1.5*np.linalg.norm(np.diag(cov)))
             meansz = np.array(meansz).flatten()
-            plt.plot(-z, meansz, color = c, label = mode)
+            plt.plot(-z, meansz, color = c, label = mode+' model')
             covs = np.array(covs)
             ax.fill_between(-z, (meansz-covs), (meansz+covs), color=c, alpha=.25)
 
             X_data, Y_data = self.models[mode].get_data()
             plt.plot(-X_data[:,2], Y_data[:,2], '.', color=c, alpha=.25)
-        plt.title('GP for {}, rotation: {}'.format(mode, rot))
+
+
+            #plt.title('GP for {}, rotation: {}'.format(mode, rot))
+
+
         plt.xlabel('Z position (m)')
         plt.ylabel('Z force (N)')
         plt.legend()
         plt.grid(True)
+        
 
+        plt.tight_layout()
+
+
+        
+
+        plt.ylim((-90,200))
+        plt.xlim((-0.39, -0.33))
 
         plt.show()
 

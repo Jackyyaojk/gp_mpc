@@ -84,6 +84,7 @@ class GPDynamics:
             # Velocity first b/c that's needed for semi-implicit
             #x_next[i+N_p] =  bn*x[i+N_p]+dt/(imp_mass[i]+dt*imp_damp[i])*(-f_mu[i]+u[i]) # -kn*x[i]
             x_next[i+N_p] =  bn*x[i+N_p]+dt/imp_mass[i]*(-f_mu[i]+u[i]) # -kn*x[i]
+            
 
             # Position
             if self.mpc_params['integrator'] == 'explicit':

@@ -7,3 +7,5 @@ src/nlp.c
 src/logs/*
 src/animation_frames/*
 */.ipynb_checkpoints
+*~undo-tree~
+*.ipynb_checkpoints

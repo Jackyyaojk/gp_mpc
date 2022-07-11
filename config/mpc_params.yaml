@@ -12,6 +12,7 @@ u_lin_max: 20.0 # Max linear force (N)
 
 delta_B_cost: 0.0005
 delta_M_cost: 0.005
+M_cost: 500
 delta_B_max: 5
 delta_M_max: 0.1
 B_min: 500
