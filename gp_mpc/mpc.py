@@ -26,8 +26,8 @@ class MPC:
         self.__F_int = {mode:gp_dynamics_dict[mode].MDS_system().map(self.__N, 'serial') for mode in self.__modes}
         self.__hum_FK = list(gp_dynamics_dict.values())[0].human_FK
 
-        # l:lower / u:upper bound on all decision variables
-        self.__lbd, self.__ubd = self.build_dec_var_constraints()
+        # l:lower / u:upper bound on all decision variables, now built from dec_var object
+        # self.__lbd, self.__ubd = self.build_dec_var_constraints()
 
         self.__constraint_slack = mpc_params['constraint_slack']
         self.__precomp = mpc_params['precomp']
@@ -189,8 +189,8 @@ class MPC:
             lb['u'] = -self.mpc_params['u_lin_max']
             ub['u'] = self.mpc_params['u_lin_max']
         else:
-            lb['u'] = np.append([-self.mpc_params['u_lin_max']*3, -self.mpc_params['u_rot_max']*3])
-            ub['u'] = np.append([ self.mpc_params['u_lin_max']*3,  self.mpc_params['u_rot_max']*3])
+            lb['u'] = np.repeat(np.expand_dims(np.concatenate([[-self.mpc_params['u_lin_max']]*3, [-self.mpc_params['u_rot_max']]*3]),axis=1), self.__N, axis=1)
+            ub['u'] = np.repeat(np.expand_dims(np.concatenate([[self.mpc_params['u_lin_max']]*3,  [self.mpc_params['u_rot_max']]*3]),axis=1), self.__N, axis=1)
         return ub, lb
 
 

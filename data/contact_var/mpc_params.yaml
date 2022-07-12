@@ -25,7 +25,7 @@ Rr: 70.0    # Rotaional control cost
 u_rot_max: 6.0 # Max rotational force (Nm)
 
 #### MPC Problem ####
-enable_rotation: true
+enable_rotation: false
 match_human_force: false     # Cost function penalizes |f_human - u| instead of |f_human|
 risk_sens: -0.0             # -0.02 is OK. If 0, standard expected cost used
 simplify_cov: true          # Use only  first element in GP covariance, axis specified in gp_params
