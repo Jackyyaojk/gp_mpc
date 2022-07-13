@@ -121,7 +121,7 @@ class MPC:
             if self.mpc_params['well_damped_margin'] != 0.0:
                 print('Adding well-damped constraint')
                 Ke = ca.fabs(self.__gp_dynamics[mode].gp_grad(self.__vars['x_'+mode][:self.__N_p,-1]))[2]
-                g += [self.__vars['imp_damp'][2]-2*ca.sqrt(self.__vars['imp_mass'][2]*Ke)*self.mpc_params['well_damped_margin']]
+                g += [self.__vars['imp_damp'][2]-2*ca.sqrt(self.__vars['imp_mass'][2]*(Ke+100.0))*self.mpc_params['well_damped_margin']]
                 lbg += list(np.zeros(1))
                 ubg += list(np.full(1, np.inf))
 
