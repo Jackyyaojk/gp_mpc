@@ -190,9 +190,9 @@ class gp_model():
         max_cov = np.zeros((3,1))
         exp = self.gp_params['plot_extension']
         off = 0 if not rot else 3
-        x, y, z = np.meshgrid(np.linspace(state_bounds[0][0+off]-exp, state_bounds[1][0+off]+exp, 5),
-                              np.linspace(state_bounds[0][1+off]-exp, state_bounds[1][1+off]+exp, 5),
-                              np.linspace(state_bounds[0][2+off]-exp, state_bounds[1][2+off]+exp, 5))
+        x, y, z = np.meshgrid(np.linspace(state_bounds[0][0+off]-exp, state_bounds[1][0+off]+exp, 7),
+                              np.linspace(state_bounds[0][1+off]-exp, state_bounds[1][1+off]+exp, 7),
+                              np.linspace(state_bounds[0][2+off]-exp, state_bounds[1][2+off]+exp, 7))
         x = x.flatten()
         y = y.flatten()
         z = z.flatten()
@@ -247,7 +247,8 @@ class gp_model():
             for X, Y in zip(X_data, Y_data):
                 X_pert = X+0.004*np.random.randn(1,self.state_dim)
                 mu, _  = self.models[mode].predict(X_pert)
-                
+                #mu = force_comp_to_world(X_pert, mu)
+                #Y = force_comp_to_world(X, Y)
                 if not rot:
                     ax.quiver(X_pert[0,0], X_pert[0,1], X_pert[0,2], mu[0], mu[1], mu[2], length= 0.0015, color = 'b')
                     ax.quiver(X[0], X[1], X[2], Y[0], Y[1], Y[2], length=0.0015, color = 'r')

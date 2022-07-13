@@ -15,10 +15,13 @@ from mpl_toolkits.mplot3d import axes3d
 
 from gp_mpc.gp_wrapper import gp_model
 from gp_mpc.control import start_node
-from gp_mpc.helper_fns import yaml_load
+from gp_mpc.helper_fns import yaml_load, force_comp_to_world
 
 
 def bag_loader(path, map_and_append_msg, topic_name = 'robot_state', normalize = ''):
+    '''
+    Load a specified topic from a rosbag, returning the an array ordered to timestamp
+    '''
     bag = rosbag.Bag(path)
     num_obs = bag.get_message_count(topic_name)
     if num_obs is 0:
@@ -186,7 +189,8 @@ if __name__ == "__main__":
             else:
                 skipcnt += 1
                 continue
-
+            B = force_comp_to_world(p, B)
+            M = force_comp_to_world(p, M)
             rot = 0.15
             line_damp = ax.plot([p[0]-scale_B*B[1], p[0]+scale_B*B[1]],
                     [p[1]-scale_B*rot*B[1], p[1]+scale_B*rot*B[1]],

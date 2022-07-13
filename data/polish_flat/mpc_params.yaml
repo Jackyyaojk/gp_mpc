@@ -25,7 +25,7 @@ Rr: 70.0    # Rotational control cost
 u_rot_max: 6.0 # Max rotational force (Nm)
 
 #### MPC Problem ####
-enable_rotation: true
+enable_rotation: false
 match_human_force: false    # Cost function penalizes |f_human -j u| instead of |f_human|
 risk_sens: -0.0             # -0.02 is OK. If 0, standard expected cost used
 simplify_cov: false         # Use only one cov element, axis specified in gp_params
@@ -48,12 +48,12 @@ well_damped_margin: 0 # 3.0
 sim: true
 
 # Disturbance rejection
-dist_rej: 5000.0 # 5000
+dist_rej: 0.0 # 5000
 dist_omega: 30.0
 
 # Outputs and debug
 print_control: true
-live_plot: true    # display the trajectory planning, pretty big perf reduction
+live_plot: false    # display the trajectory planning, pretty big perf reduction
 save_plot: false   # save the trajectory animation
 precomp: false     # precompile the MPC solver
 print_IPOPT: false  # Print MPC output to mpc_log
