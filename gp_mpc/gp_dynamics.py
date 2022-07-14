@@ -46,19 +46,6 @@ class GPDynamics:
         init_pose = ca.SX.sym('init_pose', 6) # Initial robot pose, position + rotation vector
         return u, x, x_next, x_pos_cov, hum_jts, imp_mass, imp_damp, init_pose
 
-    def compliance_to_world(self, init_pose, x):
-        # Translate x from being in init_pose frame to world frame.
-        #R = rotvec_to_rotation(init_pose[3:])
-        #x_w = R@x[:3]+init_pose[:3]
-        #if self.mpc_params['enable_rotation']:
-        #    x_w = ca.vertcat(x_w, R.T@x[3:])
-        #return x_w
-        # Old method!
-        q0 = rotvec_to_quat(init_pose[3:])           # Initial robot orientation, quaternion
-        x_w = quat_vec_mult(q0, x[:3])+init_pose[:3] # Linear position in world coords
-        if self.mpc_params['enable_rotation']: 
-            x_w = ca.vertcat(x_w, quat_to_rotvec(quat_quat_mult(xyz_to_quat(x[3:]), q0)))
-        return x_w
 
    # def integrator(self, x, u, f_mu, imp_params, x_next):
 
@@ -70,7 +57,7 @@ class GPDynamics:
 
         u, x, x_next, x_pos_cov, hum_jts, imp_mass, imp_damp, init_pose = self.build_dec_vars()
 
-        x_w = self.compliance_to_world(init_pose, x)
+        x_w = compliance_to_world(init_pose, x)
         f_mu, f_cov = self.__gp.predict(x=x_w, cov=[], fast = self.mpc_params['simplify_cov'])
 
         # For each DOF, apply the dynamics update

@@ -10,6 +10,20 @@ def msg_to_state(msg):
 def msg_to_obs(msg):
     return msg.effort[:6]
 
+def compliance_to_world(init_pose, x):
+    # Translate x from being in init_pose frame to world frame.
+    #R = rotvec_to_rotation(init_pose[3:])
+    #x_w = R@x[:3]+init_pose[:3]
+    #if self.mpc_params['enable_rotation']:
+    #    x_w = ca.vertcat(x_w, R.T@x[3:])
+    #return x_w
+    # Old method!
+    q0 = rotvec_to_quat(init_pose[3:])           # Initial robot orientation, quaternion
+    x_w = quat_vec_mult(q0, x[:3])+init_pose[:3] # Linear position in world coords
+    if x.size()[0] == 6:
+        x_w = ca.vertcat(x_w, quat_to_rotvec(quat_quat_mult(xyz_to_quat(x[3:]), q0)))
+    return x_w
+
 ##############################################################################################################
 #### Welcome to the orientation zone ####
 #### Functions are grouped by the first representation in the argument list.
@@ -148,6 +162,8 @@ def quat_to_rotvec(q):
 def quat_vec_mult(q,v):
     if type(q) is ca.SX:
         ret = ca.SX.zeros(3)
+    elif type(q) is ca.MX:
+        ret = ca.MX.zeros(3)
     else:
         ret = ca.DM.zeros(3)
     ret[0] =    v[0]*(q[0]**2+q[1]**2-q[2]**2-q[3]**2)\

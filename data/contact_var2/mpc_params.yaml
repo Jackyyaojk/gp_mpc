@@ -12,38 +12,40 @@ u_lin_max: 20.0 # Max linear force (N)
 
 delta_B_cost: 0.0005
 delta_M_cost: 0.005
-M_cost: 5.0
-B_cost: 0.0005
-delta_B_max: 20
+M_cost: 150 # 5.0
+B_cost: 1 # 0.0005
+delta_B_max: 30
 delta_M_max: 0.4
 B_min: 500
 M_min: 7
 B_max: 2000
 M_max: 20
 
+well_damped_margin: 0.4 # 40.0
+
+chance_prob: 0. #0.9
+chance_bnd: 0 #12
+
 Rr: 70.0    # Rotaional control cost
 u_rot_max: 6.0 # Max rotational force (Nm)
 
 #### MPC Problem ####
 enable_rotation: false
-match_human_force: true     # Cost function penalizes |f_human - u| instead of |f_human|
+match_human_force: true # Cost function penalizes |f_human - u| instead of |f_human|
+match_force_setpoint: 10
+match_force_setpoint_weight: 20
 risk_sens: -0.0             # -0.02 is OK. If 0, standard expected cost used
 simplify_cov: true          # Use only  first element in GP covariance, axis specified in gp_params
 integrator: 'implicit'      # 'explicit'      # explicit, semi-implicit, or trapezoidal
-state_cov: true            # Integrate uncertainty in state (pos + vel)
-opti_MBK: true             # Jointly optimize M/B/K params
+state_cov: true             # Integrate uncertainty in state (pos + vel)
+opti_MBK: true              # Jointly optimize M/B/K params
 opti_hum_shoulder: false    # Optimize the human shoulder position
 opti_hum_jts: false         # Optimize the human joint positions
 
 mpc_pts: 5
-dt: 0.05 # 0.095
+dt: 0.02 # 0.095
 constraint_slack: 0.0
 bound_relax_factor: 1e-5
-
-well_damped_margin: 0.0 # 30.0
-
-chance_prob: 0.9 #0.9
-chance_bnd: 40.0 #-50
 
 sim: false
 

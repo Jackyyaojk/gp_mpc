@@ -290,17 +290,23 @@ class gp_model():
         for mode in self.modes:
             meansz = []
             covs   = []
+            Kes = []
             avg = self.models[mode].get_mean_state()
             c = colors.pop()
             for zi in z:
-                mu, cov = self.models[mode].predict(np.concatenate((np.array([x,y,zi]), avg[3:])))
+                test_pt = np.concatenate((np.array([x,y,zi]), avg[3:]))
+                mu, cov = self.models[mode].predict(test_pt)
+                Kes.append(self.models[mode].grad(test_pt)[2,2])
                 meansz.append(mu[2])
                 covs.append(cov[2]) #1.5*np.linalg.norm(np.diag(cov)))
             meansz = np.array(meansz).flatten()
+            Kes = np.array(Kes).flatten()
             plt.plot(-z, meansz, color = c, label = mode+' model')
             covs = np.array(covs)
+            if np.any(covs<0):
+                print("Negative covariance found!!!")
             ax.fill_between(-z, (meansz-covs), (meansz+covs), color=c, alpha=.25)
-
+            plt.plot(-z, Kes, color = 'r', label = mode+' stiff')
             X_data, Y_data = self.models[mode].get_data()
             plt.plot(-X_data[:,2], Y_data[:,2], '.', color=c, alpha=.25)
 
@@ -319,7 +325,7 @@ class gp_model():
 
         
 
-        plt.ylim((-90,200))
+        #plt.ylim((-90,200))
         plt.xlim((-0.39, -0.33))
 
         plt.show()

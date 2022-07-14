@@ -7,7 +7,7 @@ import casadi as ca
 
 # Custom includes
 from .gp_model import GP
-from .helper_fns import yaml_load, constraints
+from .helper_fns import yaml_load, constraints, compliance_to_world
 from .decision_vars import decision_var_set, param_set, decision_var
 from autodiff_dynamic_systems.autodiff_sys import Sys
 
@@ -55,6 +55,7 @@ class MPC:
 
         self.__vars.set_results(sol['x'])
         self.x_traj = {m:self.__vars['x_'+m] for m in self.__modes}
+        print(self.x_traj)
         self.u_traj = self.__vars['u']
         self.imp_mass = np.squeeze(self.__vars['imp_mass'])
         self.imp_damp = np.squeeze(self.__vars['imp_damp'])
@@ -120,14 +121,23 @@ class MPC:
 
             if self.mpc_params['well_damped_margin'] != 0.0:
                 print('Adding well-damped constraint')
-                Ke = ca.fabs(self.__gp_dynamics[mode].gp_grad(self.__vars['x_'+mode][:self.__N_p,-1]))[2]
-                g += [self.__vars['imp_damp'][2]-2*ca.sqrt(self.__vars['imp_mass'][2]*(Ke+100.0))*self.mpc_params['well_damped_margin']]
+                x = self.__vars['x_'+mode][:self.__N_p,-1]
+                print(x.size()[0])
+                x_w = compliance_to_world(params['init_pose'],x)
+                #print(self.__vars['x_'+mode][:self.__N_p,-1])
+                Ke = ca.fabs(self.__gp_dynamics[mode].gp_grad(x_w))[2,2]
+                #Ke = ca.fabs(self.__gp_dynamics[mode].gp_grad(Xk_next[:self.__N_p,-1])[2,2])
+                #Ke = ca.fabs(self.__gp_dynamics[mode].gp_grad([0.87, 0.05, 0.33])[2,2])
+                g += [self.__vars['imp_damp'][2]-2*ca.sqrt(self.__vars['imp_mass'][2]*(Ke))*self.mpc_params['well_damped_margin']]
                 lbg += list(np.zeros(1))
                 ubg += list(np.full(1, np.inf))
 
         # Calculate total objective
         J_total = 0.0
         J_u_total = self.mpc_params['R']*ca.sumsqr(self.__vars['u'])
+        if self.mpc_params['match_force_setpoint']:
+            J_u_total += self.mpc_params['match_force_setpoint_weight']*\
+                ca.sumsqr(self.mpc_params['match_force_setpoint']-self.__vars['u'][2,0])
         if self.mpc_params['opti_MBK']:
             J_u_total += self.mpc_params['delta_M_cost']*ca.sumsqr(self.__vars.get_deviation('imp_mass'))
             J_u_total += self.mpc_params['delta_B_cost']*ca.sumsqr(self.__vars.get_deviation('imp_damp'))
@@ -151,7 +161,6 @@ class MPC:
             force_signal = Sys([1, 0],[1, self.mpc_params['dist_omega']])
             self.dist_signal = admittance_TF*force_signal
             J_total += self.mpc_params['dist_rej']*self.dist_signal.h2(sol = 'ma27') #'scipy')
-
 
         # Set up dictionary of arguments to solve
         w, lbw, ubw = self.__vars.get_dec_vectors()
