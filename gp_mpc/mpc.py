@@ -121,14 +121,14 @@ class MPC:
 
             if self.mpc_params['well_damped_margin'] != 0.0:
                 print('Adding well-damped constraint')
-                x = self.__vars['x_'+mode][:self.__N_p,-1]
-                print(x.size()[0])
+                #x = self.__vars['x_'+mode][:self.__N_p,-1]
+                #x = self.__vars['x_'+mode][3:3+self.__N_p,0]
+                x = Xk_next[:self.__N_p,-1]
+                #x = 20*self.mpc_params['dt']*self.__vars['x_'+mode][3:3+self.__N_p,0]
                 x_w = compliance_to_world(params['init_pose'],x)
-                #print(self.__vars['x_'+mode][:self.__N_p,-1])
                 Ke = ca.fabs(self.__gp_dynamics[mode].gp_grad(x_w))[2,2]
-                #Ke = ca.fabs(self.__gp_dynamics[mode].gp_grad(Xk_next[:self.__N_p,-1])[2,2])
-                #Ke = ca.fabs(self.__gp_dynamics[mode].gp_grad([0.87, 0.05, 0.33])[2,2])
-                g += [self.__vars['imp_damp'][2]-2*ca.sqrt(self.__vars['imp_mass'][2]*(Ke))*self.mpc_params['well_damped_margin']]
+                #g += [self.__vars['imp_damp'][2]-2*ca.sqrt(self.__vars['imp_mass'][2]*(Ke))*self.mpc_params['well_damped_margin']]
+                g += [1e-4*(self.__vars['imp_damp'][2]*700-2*(self.__vars['imp_mass'][2]*(Ke))*self.mpc_params['well_damped_margin'])]
                 lbg += list(np.zeros(1))
                 ubg += list(np.full(1, np.inf))
 

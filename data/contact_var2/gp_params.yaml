@@ -1,13 +1,13 @@
 data_path:
-  hard_no_var: !!set  
-    auto_hard_00.bag: null
-    auto_hard_01.bag: null
+  #hard_no_var: !!set  
+  #  auto_hard_00.bag: null
+  #  auto_hard_01.bag: null
   #  auto_soft_02.bag: null
   #  man_01.bag: null      
-  #soft_no_var: !!set  
-  #  auto_soft_00.bag: null
-  #  auto_soft_02.bag: null
-  #  man_01.bag: null      
+  soft_no_var: !!set  
+    auto_soft_00.bag: null
+    auto_soft_02.bag: null
+    man_01.bag: null      
   #soft_var: !!set  
   #  auto_soft_00.bag: null
   #  auto_soft_10.bag: null
