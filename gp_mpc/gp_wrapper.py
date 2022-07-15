@@ -317,8 +317,7 @@ class gp_model():
         plt.xlabel('Z position (m)')
         plt.ylabel('Z force (N)')
         plt.legend()
-        plt.grid(True)
-        
+        plt.grid(True) 
 
         plt.tight_layout()
 
@@ -326,7 +325,7 @@ class gp_model():
         
 
         #plt.ylim((-90,200))
-        plt.xlim((-0.39, -0.33))
+        #plt.xlim((-0.39, -0.33))
 
         plt.show()
 

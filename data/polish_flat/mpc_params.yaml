@@ -36,7 +36,7 @@ opti_hum_shoulder: false    # Optimize the human shoulder position
 opti_hum_jts: false         # Optimize the human joint positions
 
 mpc_pts: 5
-dt: 0.095
+dt: 0.05
 constraint_slack: 0.0
 bound_relax_factor: 1e-5
 

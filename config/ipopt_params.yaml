@@ -8,11 +8,11 @@ ipopt.evaluate_orig_obj_at_resto_trial: 'yes'
 ipopt.expect_infeasible_problem: 'no'
 ipopt.expect_infeasible_problem_ctol: 0.0001
 ipopt.expect_infeasible_problem_ytol: 100000000.0
-ipopt.file_print_level: 5
+ipopt.file_print_level: 0
 ipopt.fixed_variable_treatment: 'make_constraint'
-ipopt.linear_solver: 'mumps'
+ipopt.linear_solver: 'ma57'
 ipopt.max_cpu_time: 1000000.0
-ipopt.max_iter: 3000
+ipopt.max_iter: 100
 ipopt.mu_init: 0.01
 ipopt.mu_oracle: probing
 ipopt.mu_strategy: adaptive
@@ -24,7 +24,7 @@ ipopt.print_user_options: 'no'
 ipopt.required_infeasibility_reduction: 0.9
 ipopt.soft_resto_pderror_reduction_factor: 0.9999
 ipopt.start_with_resto: 'no'
-ipopt.tol: 1.0e-07
+ipopt.tol: 1.0e-06
 ipopt.warm_start_bound_frac: 1.0e-09
 ipopt.warm_start_bound_push: 1.0e-09
 ipopt.warm_start_init_point: 'yes'
@@ -34,4 +34,3 @@ ipopt.warm_start_slack_bound_push: 1.0e-09
 ipopt.ma57_automatic_scaling: 'no'
 print_time: false
 verbose: false
-

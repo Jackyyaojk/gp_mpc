@@ -1,19 +1,18 @@
-
 #### COST FUNCTION PARAMETERS  ####
-H: 5.0        # Human force cost
+H: 0.        # Human force cost
 H_jt: 0.0   # Human joint cost
-I: 2000      # Human force covariance cos 
+I: 0      # Human force covariance cos 
 Q_pos: 0.0  # Position cost
 Q_vel: 0.0  # Velocity cost
 S: 0     # State covariance cost
 
-R: 0.10     # Contol cost
+R: 0.5     # Contol cost
 u_lin_max: 20.0 # Max linear force (N)
 
 delta_B_cost: 0.0005
 delta_M_cost: 0.005
-M_cost: 150 # 5.0
-B_cost: 1 # 0.0005
+M_cost: 0.0 # 5.0
+B_cost: 0.0005 # 0.0005
 delta_B_max: 30
 delta_M_max: 0.4
 B_min: 500
@@ -21,19 +20,19 @@ M_min: 7
 B_max: 2000
 M_max: 20
 
-well_damped_margin: 0.01 # 40.0
+well_damped_margin: 0. # 0.4
 
-chance_prob: 0. #0.9
-chance_bnd: 0 #12
+chance_prob: 0.5 #0.5
+chance_bnd: 12.0 #12
 
 Rr: 70.0    # Rotaional control cost
 u_rot_max: 6.0 # Max rotational force (Nm)
 
 #### MPC Problem ####
 enable_rotation: false
-match_human_force: true # Cost function penalizes |f_human - u| instead of |f_human|
-match_force_setpoint: 10
-match_force_setpoint_weight: 20
+match_human_force: false # Cost function penalizes |f_human - u| instead of |f_human|
+match_force_setpoint: 15
+match_force_setpoint_weight: 200
 risk_sens: -0.0             # -0.02 is OK. If 0, standard expected cost used
 simplify_cov: true          # Use only  first element in GP covariance, axis specified in gp_params
 integrator: 'implicit'      # 'explicit'      # explicit, implicit, or trapezoidal
@@ -43,7 +42,7 @@ opti_hum_shoulder: false    # Optimize the human shoulder position
 opti_hum_jts: false         # Optimize the human joint positions
 
 mpc_pts: 5
-dt: 0.03 # 0.095
+dt: 0.065 # 0.095
 constraint_slack: 0.0
 bound_relax_factor: 1e-5
 

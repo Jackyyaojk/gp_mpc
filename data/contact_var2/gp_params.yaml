@@ -1,13 +1,12 @@
 data_path:
-  #hard_no_var: !!set  
-  #  auto_hard_00.bag: null
-  #  auto_hard_01.bag: null
+  hard_no_var: !!set  
+    auto_hard_00.bag: null
+    auto_hard_01.bag: null
   #  auto_soft_02.bag: null
-  #  man_01.bag: null      
-  soft_no_var: !!set  
-    auto_soft_00.bag: null
-    auto_soft_02.bag: null
-    man_01.bag: null      
+  #  man_soft_00.bag: null      
+  #soft_no_var: !!set  
+  #  auto_soft_00.bag: null 
+  #  auto_soft_02.bag: null
   #soft_var: !!set  
   #  auto_soft_00.bag: null
   #  auto_soft_10.bag: null
@@ -19,9 +18,9 @@ gp_method: ME
 simplify_cov_axis: 2        # Which axis to use for the reduced cov (default 0, only nec if kernel not homogeneous
 mean_func: hinge
 hyper:
-  length_scale: 0.03 #0.225   # \ell 
+  length_scale: 0.10 #0.225   # \ell 
   noise_var: 14.5      # \sigma_n^2
-  signal_var: 1.75 #2.25     # \sigma_f^2
+  signal_var: 1.0 #2.25     # \sigma_f^2
 hyper_rot:
   length_scale: 0.20
   noise_var: 3.75
@@ -44,6 +43,6 @@ opt_hyper: true
 opt_numeric: false
 print_hyper: false
 plot: false
-plot_data: false
+plot_data: true
 plot_linear: true
 plot_extension: 0.2

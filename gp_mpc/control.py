@@ -57,7 +57,8 @@ class mpc_impedance_control():
         # Init MPC
         self.mpc = MPC( N_p = self.state_dim,
                         mpc_params = self.mpc_params,
-                        gp_dynamics_dict = self.gp_dynamics_dict )
+                        gp_dynamics_dict = self.gp_dynamics_dict,
+                        path = path )
 
         # Init ROS
         self.sub         = rospy.Subscriber('robot_state',
@@ -148,6 +149,7 @@ class mpc_impedance_control():
 
                     return
 
+                des_force[0:2] = 0.0
                 self.build_and_publish(des_force = des_force,
                                        des_damp = self.mpc.imp_damp,
                                        des_mass = self.mpc.imp_mass)

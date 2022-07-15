@@ -12,7 +12,7 @@ from .decision_vars import decision_var_set, param_set, decision_var
 from autodiff_dynamic_systems.autodiff_sys import Sys
 
 class MPC:
-    def __init__(self, N_p, mpc_params, gp_dynamics_dict):
+    def __init__(self, N_p, mpc_params, gp_dynamics_dict, path):
         self.mpc_params = mpc_params
 
         # Set up problem dimensions
@@ -32,7 +32,7 @@ class MPC:
         self.__constraint_slack = mpc_params['constraint_slack']
         self.__precomp = mpc_params['precomp']
 
-        self.options = yaml_load('config/', 'ipopt_params.yaml')
+        self.options = yaml_load(path, 'ipopt_params.yaml')
         #jit_options = {"flags": ["-Os"], "verbose": True}
         #options = {"jit": True, "compiler": "shell", "jit_options": jit_options}
         #self.options.update(options)
@@ -121,14 +121,16 @@ class MPC:
 
             if self.mpc_params['well_damped_margin'] != 0.0:
                 print('Adding well-damped constraint')
-                #x = self.__vars['x_'+mode][:self.__N_p,-1]
+                x = self.__vars['x_'+mode][:self.__N_p,0]
+                x += ca.DM([0, 0, 0.01])
                 #x = self.__vars['x_'+mode][3:3+self.__N_p,0]
-                x = Xk_next[:self.__N_p,-1]
-                #x = 20*self.mpc_params['dt']*self.__vars['x_'+mode][3:3+self.__N_p,0]
+                #x = Xk_next[:self.__N_p,-1]
+                #x = 10*self.mpc_params['dt']*self.__vars['x_'+mode][3:3+self.__N_p,0]
+
                 x_w = compliance_to_world(params['init_pose'],x)
-                Ke = ca.fabs(self.__gp_dynamics[mode].gp_grad(x_w))[2,2]
+                Ke = ca.MX(ca.fabs(self.__gp_dynamics[mode].gp_grad(x_w))[2,2])
                 #g += [self.__vars['imp_damp'][2]-2*ca.sqrt(self.__vars['imp_mass'][2]*(Ke))*self.mpc_params['well_damped_margin']]
-                g += [1e-4*(self.__vars['imp_damp'][2]*700-2*(self.__vars['imp_mass'][2]*(Ke))*self.mpc_params['well_damped_margin'])]
+                g += [1e-2*(self.__vars['imp_damp'][2]*700-2*(self.__vars['imp_mass'][2]*(Ke))*self.mpc_params['well_damped_margin'])]
                 lbg += list(np.zeros(1))
                 ubg += list(np.full(1, np.inf))
 
@@ -137,7 +139,7 @@ class MPC:
         J_u_total = self.mpc_params['R']*ca.sumsqr(self.__vars['u'])
         if self.mpc_params['match_force_setpoint']:
             J_u_total += self.mpc_params['match_force_setpoint_weight']*\
-                ca.sumsqr(self.mpc_params['match_force_setpoint']-self.__vars['u'][2,0])
+                ca.sumsqr(ca.fmax(self.mpc_params['match_force_setpoint']-self.__vars['u'][2,:], 0))
         if self.mpc_params['opti_MBK']:
             J_u_total += self.mpc_params['delta_M_cost']*ca.sumsqr(self.__vars.get_deviation('imp_mass'))
             J_u_total += self.mpc_params['delta_B_cost']*ca.sumsqr(self.__vars.get_deviation('imp_damp'))
