@@ -149,7 +149,7 @@ class mpc_impedance_control():
 
                     return
 
-                des_force[0:2] = 0.0
+                #des_force[0:2] = 0.0
                 self.build_and_publish(des_force = des_force,
                                        des_damp = self.mpc.imp_damp,
                                        des_mass = self.mpc.imp_mass)

@@ -58,7 +58,7 @@ class GPDynamics:
         u, x, x_next, x_pos_cov, hum_jts, imp_mass, imp_damp, init_pose = self.build_dec_vars()
 
         x_w = compliance_to_world(init_pose, x)
-        f_mu, f_cov = self.__gp.predict(x=x_w, cov=[], fast = self.mpc_params['simplify_cov'])
+        f_mu, f_cov = self.__gp.predict(x=x_w[:self.__N_p], cov=[], fast = self.mpc_params['simplify_cov'])
 
         # For each DOF, apply the dynamics update
         for i in range(N_p):

@@ -55,7 +55,7 @@ class MPC:
 
         self.__vars.set_results(sol['x'])
         self.x_traj = {m:self.__vars['x_'+m] for m in self.__modes}
-        print(self.x_traj)
+        #print(self.x_traj)
         self.u_traj = self.__vars['u']
         self.imp_mass = np.squeeze(self.__vars['imp_mass'])
         self.imp_damp = np.squeeze(self.__vars['imp_damp'])
@@ -112,17 +112,20 @@ class MPC:
 
             if self.mpc_params['chance_prob'] != 0.0:
                 # Adding chance constraints for force
-                chance_const = self.mpc_params['chance_bnd'] - Fk_next['hum_force_cart'][-1,2]
+                chance_const = self.mpc_params['chance_bnd'] - Fk_next['hum_force_cart'][2, -1]# [-1,2]
+                chance_const -= ca.erfinv(self.mpc_params['chance_prob'])*ca.sqrt(Fk_next['f_cov'][-1])
+                g += [chance_const.T]
+                chance_const = self.mpc_params['chance_bnd'] - Fk_next['hum_force_cart'][2, 0]# [-1,2]
                 chance_const -= ca.erfinv(self.mpc_params['chance_prob'])*ca.sqrt(Fk_next['f_cov'][-1])
                 print("Adding chance constraints")
                 g += [chance_const.T]
-                lbg += list(np.zeros(1))
-                ubg += list(np.full(1, np.inf))
+                lbg += list(np.zeros(2))
+                ubg += list(np.full(2, np.inf))
 
             if self.mpc_params['well_damped_margin'] != 0.0:
                 print('Adding well-damped constraint')
                 x = self.__vars['x_'+mode][:self.__N_p,0]
-                x += ca.DM([0, 0, 0.01])
+                x += ca.DM([0, 0, 0.03])
                 #x = self.__vars['x_'+mode][3:3+self.__N_p,0]
                 #x = Xk_next[:self.__N_p,-1]
                 #x = 10*self.mpc_params['dt']*self.__vars['x_'+mode][3:3+self.__N_p,0]
@@ -157,12 +160,22 @@ class MPC:
 
         if self.mpc_params['dist_rej']:
             admittance_TF = Sys([1],
-                                [ca.sum1(self.__vars['imp_mass'][:2])/2.0,
-                                 ca.sum1(self.__vars['imp_damp'][:2])/2.0],
+                                [ca.sum1(self.__vars['imp_mass'][1:3])/2.0,
+                                 ca.sum1(self.__vars['imp_damp'][1:3])/2.0],
+                                symb_type = ty)
+            admittance_TF1 = Sys([1],
+                                [self.__vars['imp_mass'][1],
+                                 self.__vars['imp_damp'][1]],
+                                symb_type = ty)
+            admittance_TF2 = Sys([1],
+                                [self.__vars['imp_mass'][2],
+                                 self.__vars['imp_damp'][2]],
                                 symb_type = ty)
             force_signal = Sys([1, 0],[1, self.mpc_params['dist_omega']])
-            self.dist_signal = admittance_TF*force_signal
-            J_total += self.mpc_params['dist_rej']*self.dist_signal.h2(sol = 'ma27') #'scipy')
+            self.dist_signal1 = admittance_TF1*force_signal
+            self.dist_signal2 = admittance_TF2*force_signal
+            J_total += self.mpc_params['dist_rej']*self.dist_signal1.h2(sol = 'ma27') #'scipy')
+            J_total += self.mpc_params['dist_rej']*self.dist_signal2.h2(sol = 'ma27') #'scipy')
 
         # Set up dictionary of arguments to solve
         w, lbw, ubw = self.__vars.get_dec_vectors()
