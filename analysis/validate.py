@@ -167,7 +167,7 @@ if __name__ == "__main__":
             subprocess.Popen(["rosbag", "record", "-a","-O","".join([args.path, "validate_", fi])])
             os.system("".join(["rosbag play -r 1.0 ", args.path, fi, " && rosnode kill -a"]))
 
-    fig = plt.figure(dpi=200)
+    fig = plt.figure(figsize=(4.5,4), dpi=250)
     ax = fig.gca(projection='3d')
     # fig, ax =  plot_model_cov(model_path)
 
@@ -216,6 +216,7 @@ if __name__ == "__main__":
         ax.set_zticks([])
     plt.xlabel('X (meter)')
     plt.ylabel('Y (meter)')
+    plt.subplots_adjust(left=-0.21, right=1.21, bottom=0.0, top=1)
     plt.tight_layout()
     plt.legend(handles=[line_damp, line_mass],labels=['Damping', 'Mass'])
     plt.show()
