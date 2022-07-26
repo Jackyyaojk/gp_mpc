@@ -171,9 +171,15 @@ if __name__ == "__main__":
     ax = fig.gca(projection='3d')
     # fig, ax =  plot_model_cov(model_path)
 
+<<<<<<< HEAD
     scale_B = 0.00004
     scale_M = 0.002
     num_plot_pts = 30
+=======
+    scale_B = 0.000035
+    scale_M = 0.0028
+    num_plot_pts = 40
+>>>>>>> fbb87032ebed5b574e51fb58fca15b45b67a71f9
 
     for bag in ["".join([args.path, "validate_", fi]) for fi in files]:
         imp_msgs = bag_loader(bag, map_impedance_gains, topic_name = 'impedance_gains')
@@ -205,18 +211,23 @@ if __name__ == "__main__":
             line_mass = ax.plot([p[0]-scale_M*M[2], p[0]+scale_M*M[2]],
                     [p[1]-scale_M*rot*M[2], p[1]+scale_M*rot*M[2]],
                     [p[2], p[2]],'b', label = 'Mass')[0]
-            ax.plot([p[0]+scale_M*rot*M[0], p[0]-scale_M*rot*M[0]],
-                    [p[1]-scale_M*M[0], p[1]+scale_M*M[0]],
+            ax.plot([p[0]+scale_M*rot*M[2], p[0]-scale_M*rot*M[2]],
+                    [p[1]-scale_M*M[2], p[1]+scale_M*M[2]],
                     [p[2], p[2]],'b')
             ax.plot([p[0], p[0]],
                     [p[1], p[1]],
                     [p[2]-scale_M*M[0], p[2]+scale_M*M[0]],'b')
         ax.view_init(elev=90, azim=0)
+<<<<<<< HEAD
+    plt.xlabel('X (meter)')
+    plt.ylabel('Y (meter)')
+=======
         ax.w_zaxis.line.set_lw(0.)
         ax.set_zticks([])
     plt.xlabel('X (meter)')
     plt.ylabel('Y (meter)')
     plt.subplots_adjust(left=-0.21, right=1.21, bottom=0.0, top=1)
     plt.tight_layout()
+>>>>>>> fbb87032ebed5b574e51fb58fca15b45b67a71f9
     plt.legend(handles=[line_damp, line_mass],labels=['Damping', 'Mass'])
     plt.show()

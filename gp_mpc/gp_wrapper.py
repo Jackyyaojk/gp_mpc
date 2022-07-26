@@ -310,9 +310,7 @@ class gp_model():
             X_data, Y_data = self.models[mode].get_data()
             plt.plot(-X_data[:,2], Y_data[:,2], '.', color=c, alpha=.25)
 
-
             #plt.title('GP for {}, rotation: {}'.format(mode, rot))
-
 
         plt.xlabel('Z position (m)')
         plt.ylabel('Z force (N)')

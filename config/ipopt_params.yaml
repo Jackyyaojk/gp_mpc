@@ -10,7 +10,7 @@ ipopt.expect_infeasible_problem_ctol: 0.0001
 ipopt.expect_infeasible_problem_ytol: 100000000.0
 ipopt.file_print_level: 0
 ipopt.fixed_variable_treatment: 'make_constraint'
-ipopt.linear_solver: 'ma57'
+ipopt.linear_solver: 'mumps'
 ipopt.max_cpu_time: 1000000.0
 ipopt.max_iter: 100
 ipopt.mu_init: 0.01

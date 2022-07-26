@@ -1,12 +1,12 @@
 
 #### COST FUNCTION PARAMETERS  ####
 H: 2.0        # Human force cost
-H_jt: 0.0    # 15 # Human joint cost
-H_pow: 1500   
+H_jt: 0.0     # 10 # Human joint cost
+H_pow: 1500   # Product of force/velocity
 I: 500.0      # Human force covariance cos 
-Q_pos: 0.0  # Position cost
-Q_vel: 0  # -10 Velocity cost
-S: 50.0      # State covariance cost
+Q_pos: 0.0    # Position cost
+Q_vel: 0      # -10 # Velocity cost
+S: 50.0       # State covariance cost
 
 R: 0.05     # Control cost
 u_lin_max: 20.0 # Max linear force (N)
