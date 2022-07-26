@@ -1,12 +1,12 @@
 
 #### COST FUNCTION PARAMETERS  ####
-H: 0.1        # Human force cost
-H_jt: 10.0    # 2 # Human joint cost
-H_pow: 15.0   
-I: 300.0      # Human force covariance cos 
+H: 2.0        # Human force cost
+H_jt: 0.0    # 15 # Human joint cost
+H_pow: 1500   
+I: 500.0      # Human force covariance cos 
 Q_pos: 0.0  # Position cost
 Q_vel: 0  # -10 Velocity cost
-S: 10.0      # State covariance cost
+S: 50.0      # State covariance cost
 
 R: 0.05     # Control cost
 u_lin_max: 20.0 # Max linear force (N)
@@ -19,15 +19,15 @@ B_min: 600
 M_min: 8
 B_max: 2000
 M_max: 20
-M_cost: 0.005
-B_cost: 0.00002
+M_cost: 1.0
+B_cost: 0.0001
 
 Rr: 70.0    # Rotational control cost
 u_rot_max: 6.0 # Max rotational force (Nm)
 
 # Disturbance rejection
-dist_rej: 00000.0 # 100000
-dist_omega: 15.0
+dist_rej: 0000.0 # 80000
+dist_omega: 10.0
 
 #### MPC Problem ####
 enable_rotation: false
@@ -43,7 +43,7 @@ opti_hum_shoulder: false    # Optimize the human shoulder position
 opti_hum_jts: false         # Optimize the human joint positions
 
 mpc_pts: 5
-dt: 0.09
+dt: 0.12
 constraint_slack: 0.0
 bound_relax_factor: 1e-5
 

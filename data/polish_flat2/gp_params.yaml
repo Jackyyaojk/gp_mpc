@@ -1,8 +1,8 @@
 data_path:
   polish: !!set
-     1.bag: null
-     2.bag: null
-     3.bag: null
+     off_1.bag: null
+     off_2.bag: null
+     off_3.bag: null
 gp_method: ME         # Input uncertainty method, ME = mean equiv, TA = taylor approx
 simplify_cov_axis: 2  # Which axis to use for the reduced cov, default 0
 

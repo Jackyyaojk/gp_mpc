@@ -171,12 +171,12 @@ if __name__ == "__main__":
     ax = fig.gca(projection='3d')
     # fig, ax =  plot_model_cov(model_path)
 
-    scale_B = 0.00002
+    scale_B = 0.00004
     scale_M = 0.002
-    num_plot_pts = 50
+    num_plot_pts = 30
 
     for bag in ["".join([args.path, "validate_", fi]) for fi in files]:
-        imp_msgs = bag_loader(bag, map_impedance_gains, topic_name = 'impedance_gains_sim')
+        imp_msgs = bag_loader(bag, map_impedance_gains, topic_name = 'impedance_gains')
         state_msgs = bag_loader(bag, map_robot_state, topic_name = 'robot_state')
 
         state_msgs_aligned = get_aligned_msgs(imp_msgs, state_msgs)
@@ -195,8 +195,8 @@ if __name__ == "__main__":
             line_damp = ax.plot([p[0]-scale_B*B[1], p[0]+scale_B*B[1]],
                     [p[1]-scale_B*rot*B[1], p[1]+scale_B*rot*B[1]],
                     [p[2], p[2]],'r', label = 'Damping')[0]
-            ax.plot([p[0]+scale_B*rot*B[0], p[0]-scale_B*rot*B[0]],
-                    [p[1]-scale_B*B[0], p[1]+scale_B*B[0]],
+            ax.plot([p[0]+scale_B*rot*B[2], p[0]-scale_B*rot*B[2]],
+                    [p[1]-scale_B*B[2], p[1]+scale_B*B[2]],
                     [p[2], p[2]],'r')
             ax.plot([p[0], p[0]],
                     [p[1], p[1]],
@@ -205,12 +205,14 @@ if __name__ == "__main__":
             line_mass = ax.plot([p[0]-scale_M*M[1], p[0]+scale_M*M[1]],
                     [p[1]-scale_M*rot*M[1], p[1]+scale_M*rot*M[1]],
                     [p[2], p[2]],'b', label = 'Mass')[0]
-            ax.plot([p[0]+scale_M*rot*M[0], p[0]-scale_M*rot*M[0]],
-                    [p[1]-scale_M*M[0], p[1]+scale_M*M[0]],
+            ax.plot([p[0]+scale_M*rot*M[2], p[0]-scale_M*rot*M[2]],
+                    [p[1]-scale_M*M[2], p[1]+scale_M*M[2]],
                     [p[2], p[2]],'b')
             ax.plot([p[0], p[0]],
                     [p[1], p[1]],
                     [p[2]-scale_M*M[2], p[2]+scale_M*M[2]],'b')
         ax.view_init(elev=90, azim=0)
+    plt.xlabel('X (meter)')
+    plt.ylabel('Y (meter)')
     plt.legend(handles=[line_damp, line_mass],labels=['Damping', 'Mass'])
     plt.show()

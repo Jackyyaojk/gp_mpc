@@ -22,6 +22,7 @@ class GPDynamics:
         self.__S = mpc_params['S']            # stagecost on covariance
         self.__H = mpc_params['H']            # stagecost on human forces
         self.__H_jt = mpc_params['H_jt']      # stagecost on human joint torques
+        if 'H_pow' in mpc_params.keys(): self.__H_pow = mpc_params['H_pow']
         self.__I = mpc_params['I']
         self.human_kin = mpc_params['human_kin']
 
@@ -90,11 +91,11 @@ class GPDynamics:
         # Define stagecost L, note control costs happen in main MPC problem as control shared btwn modes
         L = self.__Q_vel*ca.sumsqr(x_next[N_p:2*N_p]) + self.__R*ca.sumsqr(u[:3]) + self.__I*ca.sum1(f_cov)
         if N_p == 6: L += self.__Rr*ca.sumsqr(u[3:6])
-        if self.mpc_params['state_cov']: L += self.__S*ca.sum1(x_next[2*N_p:]) 
+        if self.mpc_params['state_cov']: L += self.__S*ca.sum1(x_next[2*N_p:])
 
         # Add cost for total force or error from expected human force
         L += self.__H*ca.sumsqr(f_mu+u[:N_p]) if self.mpc_params['match_human_force'] else self.__H*ca.sumsqr(f_mu) 
-
+        if self.__H_pow is not None: L += self.__H_pow*f_mu.T@x_next[N_p:2*N_p]
         # Add human kinematic model + cost, if modelling human kinematics
         f_joints = []
         hum_kin_opti = []
