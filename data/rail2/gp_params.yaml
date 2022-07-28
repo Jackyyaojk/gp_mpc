@@ -1,23 +1,26 @@
 data_path:
-  polish: !!set
-     off_1.bag: null
-     off_2.bag: null
-     off_3.bag: null
+  rail: !!set
+    1.bag: null
+    2.bag: null
+    3.bag: null
 gp_method: ME         # Input uncertainty method, ME = mean equiv, TA = taylor approx
 simplify_cov_axis: 2  # Which axis to use for the reduced cov, default 0
 
-mean_func: zero
+mean_func: hinge #hinge #linear #const #linear
 hyper:                # Following Rasmussen2006
-  length_scale: 0.08   # \ell 
-  noise_var: 14.5     # \sigma_n^2 
-  signal_var: 3.5   # \sigma_f^2
-#  mean: 0.0   # constant value of mean function
-#  linear: 0.0 # slope of the mean function
-#  hinge: 0.0  # position of the elbow/corner of the ReLU/Hinge
+  length_scale: .010   # \ell 
+  noise_var: 12.5     # \sigma_n^2 
+  signal_var: 2.5   # \sigma_f^2
+
+
+mean_init: [0.0, 0.0, 0.0]
+linear_init: [0.1, 0.1, 0.1]
+hinge_position_init: [0.0, 0.0, 0.6]
+
 
 hyper_rot:
   length_scale: 0.20
-  noise_var: 10.0
+  noise_var: 14.0
   signal_var: 1.8
 
 model_path: GP_models.pkl
@@ -30,9 +33,9 @@ trim_workspace: 1.0 #0.43   # Data with z value higher than this are removed
 
 obs_noise: 0.1 # covariance of noise added to the observations
 
-opt_hyper: false
+opt_hyper: true
 print_hyper: false
-plot: true
+plot: false
 plot_data: true
-plot_linear: false
-plot_extension: 0.1
+plot_linear: true
+plot_extension: 0.3

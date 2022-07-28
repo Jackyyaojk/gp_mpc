@@ -159,10 +159,6 @@ class MPC:
             J_total = -2/self.mpc_params['risk_sens']*ca.log(J_total)+J_u_total
 
         if self.mpc_params['dist_rej']:
-            admittance_TF = Sys([1],
-                                [ca.sum1(self.__vars['imp_mass'][1:3])/2.0,
-                                 ca.sum1(self.__vars['imp_damp'][1:3])/2.0],
-                                symb_type = ty)
             admittance_TF1 = Sys([1],
                                 [self.__vars['imp_mass'][1],
                                  self.__vars['imp_damp'][1]],

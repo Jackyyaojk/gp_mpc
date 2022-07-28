@@ -1,33 +1,33 @@
 
 #### COST FUNCTION PARAMETERS  ####
 H: 0.1        # Human force cost
-H_jt: 10.0    # 2 # Human joint cost
-H_pow: 15.0   
-I: 300.0      # Human force covariance cos 
-Q_pos: 0.0  # Position cost
-Q_vel: 0  # -10 Velocity cost
-S: 10.0      # State covariance cost
+H_jt: 0.5     # 30  Human joint cost
+H_pow: 0.0   # 50
+I: 300.0      # 300 Human force covariance cos 
+Q_pos: 0.0    # Position cost
+Q_vel: 0.0      # -10 Velocity cost
+S: 1250.0        # 1250 State covariance cost
 
 R: 0.05     # Control cost
 u_lin_max: 20.0 # Max linear force (N)
 
-delta_B_cost: 0.0005
-delta_M_cost: 0.005
+delta_B_cost: 0.00005
+delta_M_cost: 0.0005
 delta_B_max: 250
 delta_M_max: 1
 B_min: 600
 M_min: 8
 B_max: 2000
 M_max: 20
-M_cost: 0.005
-B_cost: 0.00002
+M_cost: 0.2  # 0.2
+B_cost: 0.0000015 # 1.5e-6
 
 Rr: 70.0    # Rotational control cost
 u_rot_max: 6.0 # Max rotational force (Nm)
 
 # Disturbance rejection
-dist_rej: 00000.0 # 100000
-dist_omega: 15.0
+dist_rej: 10000.0 # 10000
+dist_omega: 5.0
 
 #### MPC Problem ####
 enable_rotation: false
@@ -43,7 +43,7 @@ opti_hum_shoulder: false    # Optimize the human shoulder position
 opti_hum_jts: false         # Optimize the human joint positions
 
 mpc_pts: 5
-dt: 0.09
+dt: 0.04 # 0.06
 constraint_slack: 0.0
 bound_relax_factor: 1e-5
 
@@ -52,7 +52,7 @@ chance_bnd: 0 # 30
 
 well_damped_margin: 0 # 3.0
 
-sim: false
+sim: true
 
 # Outputs and debug
 print_control: true
@@ -65,8 +65,8 @@ print_IPOPT: false  # Print MPC output to mpc_log
 max_shoulder: 0.35          # Range (in m) for max x/y translation of shoulder
 human_kin: 
   center:
-  - 1.8
-  - 0.3
+  - 1.5
+  - 0.1
   - 0.5
   lengths:
   - 0.45

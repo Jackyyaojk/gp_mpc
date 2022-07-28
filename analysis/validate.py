@@ -54,7 +54,8 @@ def get_aligned_msgs(msgs1, msgs2):
     aligned_msgs2 = {key:[] for key in msgs2.keys()}
     t2 = np.array(msgs2['t'])
     for t1 in msgs1['t']:
-        last_before_t1 = np.where(t2<=t1)[0][-1] # find last time in t which is 
+        last_before_t1 = np.argmax(t2>t1) # np.where(t2<=t1)[0][-1] # find last time in t which is
+        #print("time_err {}".format(t2[last_before_t1]-t1))
         for key in msgs2.keys():
             if key == 't': continue
             aligned_msgs2[key].append(msgs2[key][:,last_before_t1])
@@ -90,10 +91,8 @@ def map_delta_impedance_gains(msg, prev_msgs):
     prev_msgs['dB'].append(msg.velocity)
     prev_msgs['dM'].append(msg.effort[:len(msg.position)])
     prev_msgs['Fd'].append(msg.effort[len(msg.position):])
-    
-def plot_model_cov(model_path, ext = 0.05):
 
-    
+def plot_model_cov(model_path, ext = 0.05):
     with open(model_path, 'rb') as f:
         models = pickle.load(f)
         modes = list(models.keys())
@@ -171,42 +170,50 @@ if __name__ == "__main__":
     ax = fig.gca(projection='3d')
     # fig, ax =  plot_model_cov(model_path)
 
-    scale_B = 0.00004
-    scale_M = 0.002
+    scale_B = 0.000018
+    scale_M = 0.0015
     num_plot_pts = 30
 
     for bag in ["".join([args.path, "validate_", fi]) for fi in files]:
-        imp_msgs = bag_loader(bag, map_impedance_gains, topic_name = 'impedance_gains')
+        imp_msgs = bag_loader(bag, map_impedance_gains, topic_name = 'impedance_gains_sim')
         state_msgs = bag_loader(bag, map_robot_state, topic_name = 'robot_state')
 
         state_msgs_aligned = get_aligned_msgs(imp_msgs, state_msgs)
 
-        subsample_rate = int(state_msgs_aligned['pos'].shape[1]/num_plot_pts)
-        skipcnt = 0
+        #subsample_rate = int(state_msgs_aligned['pos'].shape[1]/num_plot_pts)
+        #skipcnt = 0
+        min_dist = 0.03
+        pos_last = state_msgs_aligned['pos'][:,0]
         for p, B, M  in zip(state_msgs_aligned['pos'].T, imp_msgs['B'].T, imp_msgs['M'].T):
-            if skipcnt > subsample_rate:
-                skipcnt = 0
-            else:
-                skipcnt += 1
+            #if skipcnt > subsample_rate:
+            #    skipcnt = 0
+            #else:
+            #    skipcnt += 1
+            #    continue
+            if np.linalg.norm(p[:3] - pos_last[:3]) < min_dist:
                 continue
+            else:
+                pos_last = p
             B = force_comp_to_world(p, B)
             M = force_comp_to_world(p, M)
-            rot = 0.15
-            line_damp = ax.plot([p[0]-scale_B*B[1], p[0]+scale_B*B[1]],
-                    [p[1]-scale_B*rot*B[1], p[1]+scale_B*rot*B[1]],
+            rot = 0.1
+            x = 1
+            y = 2
+            line_damp = ax.plot([p[0]-scale_B*B[x], p[0]+scale_B*B[x]],
+                    [p[1]-scale_B*rot*B[x], p[1]+scale_B*rot*B[x]],
                     [p[2], p[2]],'r', label = 'Damping')[0]
-            ax.plot([p[0]+scale_B*rot*B[2], p[0]-scale_B*rot*B[2]],
-                    [p[1]-scale_B*B[2], p[1]+scale_B*B[2]],
+            ax.plot([p[0]+scale_B*rot*B[y], p[0]-scale_B*rot*B[y]],
+                    [p[1]-scale_B*B[y], p[1]+scale_B*B[y]],
                     [p[2], p[2]],'r')
             ax.plot([p[0], p[0]],
                     [p[1], p[1]],
                     [p[2]-scale_B*B[0], p[2]+scale_B*B[0]],'r')
             p = p + 0.0009*np.ones(6)
-            line_mass = ax.plot([p[0]-scale_M*M[2], p[0]+scale_M*M[2]],
-                    [p[1]-scale_M*rot*M[2], p[1]+scale_M*rot*M[2]],
+            line_mass = ax.plot([p[0]-scale_M*M[x], p[0]+scale_M*M[x]],
+                    [p[1]-scale_M*rot*M[x], p[1]+scale_M*rot*M[x]],
                     [p[2], p[2]],'b', label = 'Mass')[0]
-            ax.plot([p[0]+scale_M*rot*M[0], p[0]-scale_M*rot*M[0]],
-                    [p[1]-scale_M*M[0], p[1]+scale_M*M[0]],
+            ax.plot([p[0]+scale_M*rot*M[y], p[0]-scale_M*rot*M[y]],
+                    [p[1]-scale_M*M[y], p[1]+scale_M*M[y]],
                     [p[2], p[2]],'b')
             ax.plot([p[0], p[0]],
                     [p[1], p[1]],
@@ -214,9 +221,12 @@ if __name__ == "__main__":
         ax.view_init(elev=90, azim=0)
         ax.w_zaxis.line.set_lw(0.)
         ax.set_zticks([])
+
     plt.xlabel('X (meter)')
     plt.ylabel('Y (meter)')
+    ax.set_xlim([0.7, 1.15])
+    ax.set_ylim([-0.1, 0.35])
     plt.subplots_adjust(left=-0.21, right=1.21, bottom=0.0, top=1)
     plt.tight_layout()
-    plt.legend(handles=[line_damp, line_mass],labels=['Damping', 'Mass'])
+    plt.legend(handles=[line_damp, line_mass],labels=['Damping', 'Mass'])   
     plt.show()

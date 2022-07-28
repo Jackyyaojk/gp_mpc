@@ -62,6 +62,7 @@ class GPDynamics:
         f_mu, f_cov = self.__gp.predict(x=x_w[:self.__N_p], cov=[], fast = self.mpc_params['simplify_cov'])
 
         # For each DOF, apply the dynamics update
+        f_cov_array = []
         for i in range(N_p):
             #kn = dt*K_k/M_k
             if self.mpc_params['integrator']  == 'implicit':
@@ -85,8 +86,9 @@ class GPDynamics:
             # Update state covariance
             if self.mpc_params['state_cov']:
                 x_next[i+2*N_p] = x[i+2*N_p]+dt*dt*x[i+3*N_p] # cov pos
-                f_cov_tmp = f_cov[0] if self.mpc_params['simplify_cov'] else f_cov[i] 
+                f_cov_tmp = f_cov[0] if self.mpc_params['simplify_cov'] else f_cov[i]
                 x_next[i+3*N_p] = bn**2*x[i+3*N_p]+10*(dt/imp_mass[i])**2*f_cov_tmp
+                if i < 3: f_cov_array.append(f_cov_tmp)
 
         # Define stagecost L, note control costs happen in main MPC problem as control shared btwn modes
         L = self.__Q_vel*ca.sumsqr(x_next[N_p:2*N_p]) + self.__R*ca.sumsqr(u[:3]) + self.__I*ca.sum1(f_cov)
@@ -95,15 +97,22 @@ class GPDynamics:
 
         # Add cost for total force or error from expected human force
         L += self.__H*ca.sumsqr(f_mu+u[:N_p]) if self.mpc_params['match_human_force'] else self.__H*ca.sumsqr(f_mu) 
-        if self.__H_pow is not None: L += self.__H_pow*f_mu.T@x_next[N_p:2*N_p]
+        if self.__H_pow is not None:
+            L += self.__H_pow*f_mu.T@x_next[N_p:2*N_p]
+
         # Add human kinematic model + cost, if modelling human kinematics
         f_joints = []
         hum_kin_opti = []
         if self.human_kin and self.__H_jt:
             shoulder_pos = self.mpc_params['human_kin']['center']
             if self.__H_jt is not 0.0:
-                f_joints = self.human_joint_torques_cart(ca.vertcat(x[:3], init_pose[3:]), shoulder_pos, f_mu)
-                L += self.__H_jt*ca.sumsqr(f_joints)
+                f_joints, h_jac = self.human_joint_torques_cart(ca.vertcat(x[:3], init_pose[3:]),
+                                                                shoulder_pos,
+                                                                f_mu)
+                f_adm_joints = h_jac.T@(imp_damp*(x[N_p:2*N_p]+0.01*np.ones((3,1))))
+                L += self.__H_jt*ca.sum1(f_adm_joints)
+                #jt_spd = ca.pinv(h_jac)@x_next[N_p:2*N_p]
+                #L += 0.2*self.__H_pow*ca.sumsqr(f_joints*jt_spd)
 
         dynamics = ca.Function('F_int', [x, u, init_pose, imp_mass, imp_damp],\
                                [x_next, L, f_mu, f_cov, f_joints], \
@@ -161,7 +170,8 @@ class GPDynamics:
             self.human_jac_fn = self.human_jac()
         jts = self.human_IK(x_ee, shoulder_pos = shoulder_pos)
         jac = self.human_jac_fn(ca.horzcat(*jts))
-        return jac.T@F_world
+
+        return jac.T@F_world, jac
 
     def human_joint_torques_joint(self, x_ee, jts, F_comp):
         # Where human_kin is shoulder position and joint coords.
