@@ -109,8 +109,8 @@ class GPDynamics:
                 f_joints, h_jac = self.human_joint_torques_cart(ca.vertcat(x[:3], init_pose[3:]),
                                                                 shoulder_pos,
                                                                 f_mu)
-                f_adm_joints = h_jac.T@(imp_damp*(x[N_p:2*N_p]+0.01*np.ones((3,1))))
-                L += self.__H_jt*ca.sum1(f_adm_joints)
+                f_adm_joints = h_jac.T@(imp_damp*(x[N_p:2*N_p]+0.1*np.ones((3,1))))
+                L += self.__H_jt*ca.sum1(ca.fabs(f_adm_joints))
                 #jt_spd = ca.pinv(h_jac)@x_next[N_p:2*N_p]
                 #L += 0.2*self.__H_pow*ca.sumsqr(f_joints*jt_spd)
 

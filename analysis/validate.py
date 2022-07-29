@@ -170,7 +170,7 @@ if __name__ == "__main__":
     ax = fig.gca(projection='3d')
     # fig, ax =  plot_model_cov(model_path)
 
-    scale_B = 0.000018
+    scale_B = 0.000025
     scale_M = 0.0015
     num_plot_pts = 30
 
@@ -182,7 +182,7 @@ if __name__ == "__main__":
 
         #subsample_rate = int(state_msgs_aligned['pos'].shape[1]/num_plot_pts)
         #skipcnt = 0
-        min_dist = 0.03
+        min_dist = 0.035
         pos_last = state_msgs_aligned['pos'][:,0]
         for p, B, M  in zip(state_msgs_aligned['pos'].T, imp_msgs['B'].T, imp_msgs['M'].T):
             #if skipcnt > subsample_rate:
@@ -208,7 +208,7 @@ if __name__ == "__main__":
             ax.plot([p[0], p[0]],
                     [p[1], p[1]],
                     [p[2]-scale_B*B[0], p[2]+scale_B*B[0]],'r')
-            p = p + 0.0009*np.ones(6)
+            p = p - 0.004*np.ones(6)
             line_mass = ax.plot([p[0]-scale_M*M[x], p[0]+scale_M*M[x]],
                     [p[1]-scale_M*rot*M[x], p[1]+scale_M*rot*M[x]],
                     [p[2], p[2]],'b', label = 'Mass')[0]

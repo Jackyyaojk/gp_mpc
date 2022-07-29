@@ -55,7 +55,7 @@ class MPC:
 
         self.__vars.set_results(sol['x'])
         self.x_traj = {m:self.__vars['x_'+m] for m in self.__modes}
-        #print(self.x_traj)
+       #print(self.x_traj)
         self.u_traj = self.__vars['u']
         self.imp_mass = np.squeeze(self.__vars['imp_mass'])
         self.imp_damp = np.squeeze(self.__vars['imp_damp'])
@@ -170,8 +170,8 @@ class MPC:
             force_signal = Sys([1, 0],[1, self.mpc_params['dist_omega']])
             self.dist_signal1 = admittance_TF1*force_signal
             self.dist_signal2 = admittance_TF2*force_signal
-            J_total += self.mpc_params['dist_rej']*self.dist_signal1.h2(sol = 'ma27') #'scipy')
-            J_total += self.mpc_params['dist_rej']*self.dist_signal2.h2(sol = 'ma27') #'scipy')
+            J_total += self.mpc_params['dist_rej']*self.dist_signal1.h2(sol = 'lapackqr')
+            J_total += self.mpc_params['dist_rej']*self.dist_signal2.h2(sol = 'lapackqr') #solver: scipy, ma27, lapackqr, ldl. Probably just need scipy if poorly conditioned, otherwise the other solvers are casadi native  and faster.
 
         # Set up dictionary of arguments to solve
         w, lbw, ubw = self.__vars.get_dec_vectors()
