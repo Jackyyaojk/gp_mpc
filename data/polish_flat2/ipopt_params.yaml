@@ -12,7 +12,7 @@ ipopt.file_print_level: 0
 ipopt.fixed_variable_treatment: 'make_constraint'
 ipopt.linear_solver: 'ma86'
 ipopt.max_cpu_time: 1000000.0
-ipopt.max_iter: 20
+ipopt.max_iter: 5
 ipopt.mu_init: 0.01
 ipopt.mu_oracle: probing
 ipopt.mu_strategy: adaptive

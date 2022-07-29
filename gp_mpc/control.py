@@ -44,8 +44,8 @@ class mpc_impedance_control():
 
         # Set up local state
         self.recieved_robot_state = False
-        self.impedance_params = {'M': np.array([10, 10, 10, 2, 2, 2], dtype=float),
-                                 'B': np.array([500, 500, 500, 10, 10, 10], dtype=float),
+        self.impedance_params = {'M': np.array([10, 10, 10, 1, 1, 1], dtype=float),
+                                 'B': np.array([500, 500, 500, 30, 30, 30], dtype=float),
                                  'K': np.zeros(self.state_dim),
                                  'Fd': np.zeros(self.state_dim)}
 
@@ -163,9 +163,9 @@ class mpc_impedance_control():
             msg_control.header.stamp = rospy.Time.now()
             des_force = 0.7*(des_force-self.impedance_params['Fd'][:self.state_dim]) #to handle oscilation due to delay
             msg_control.effort[6:6+self.state_dim] = des_force
-            if des_damp is not None:
+            if des_damp is not None and self.mpc_params['opti_MBK']:
                 msg_control.velocity = 0.7*(des_damp - self.impedance_params['B'][:self.state_dim])
-            if des_mass is not None:
+            if des_mass is not None and self.mpc_params['opti_MBK']:
                 msg_control.effort[:self.state_dim] = 0.7*(des_mass - self.impedance_params['M'][:self.state_dim])
             if not rospy.is_shutdown():
                 self.pub_control.publish(msg_control)

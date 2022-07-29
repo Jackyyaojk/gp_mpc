@@ -30,7 +30,7 @@ class GP:
         """
         self.dtype = np.single
         print(f"mean_func: {mean_func}")
-
+        print(f"input dim: {X.shape}")
         self.__hyper = decision_var_set(x0 = hyper, lb = hyper_lb, ub = hyper_ub) # fancy dict wrapper to make opt easier
         self.__gp_method = gp_method
         self.__mean_func = mean_func

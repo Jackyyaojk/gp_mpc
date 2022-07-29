@@ -79,9 +79,9 @@ class MPC:
         vars = {}
 
         # Impedance
-        if self.mpc_params['opti_MBK']:
-            vars['imp_mass'] = params['imp_mass']
-            vars['imp_damp'] = params['imp_damp']
+        #if self.mpc_params['opti_MBK']:
+        vars['imp_mass'] = params['imp_mass']
+        vars['imp_damp'] = params['imp_damp']
 
         for m in self.__modes: vars['x_'+m] = np.zeros((N_x, self.__N-1))
         vars['u'] = np.zeros((N_u, self.__N))
