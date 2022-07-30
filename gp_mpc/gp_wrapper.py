@@ -253,8 +253,8 @@ class gp_model():
                     ax.quiver(X_pert[0,0], X_pert[0,1], X_pert[0,2], mu[0], mu[1], mu[2], length= 0.0015, color = 'b')
                     ax.quiver(X[0], X[1], X[2], Y[0], Y[1], Y[2], length=0.0015, color = 'r')
                 else:
-                    ax.quiver(X_pert[0,3], X_pert[0,4], X_pert[0,5], mu[3], mu[4], mu[5], length= 0.0015, color = 'b')
-                    ax.quiver(X[3], X[4], X[5], Y[3], Y[4], Y[5], length=0.0015, color = 'r')
+                    ax.quiver(X_pert[0,3], X_pert[0,4], X_pert[0,5], mu[3], mu[4], mu[5], length= 0.015, color = 'b')
+                    ax.quiver(X[3], X[4], X[5], Y[3], Y[4], Y[5], length=0.015, color = 'r')
             plt.legend(['Model', 'Data'])
             ax.set_xlabel('X')
             ax.set_ylabel('Y')

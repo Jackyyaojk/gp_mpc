@@ -1,26 +1,21 @@
 data_path:
-  rail: !!set
-    1.bag: null
-    2.bag: null
-    3.bag: null
+  polish: !!set
+     4.bag: null
+     5.bag: null
+     6.bag: null
 gp_method: ME         # Input uncertainty method, ME = mean equiv, TA = taylor approx
 simplify_cov_axis: 2  # Which axis to use for the reduced cov, default 0
 
-mean_func: zero #hinge #linear #const #linear
+mean_func: zero
 hyper:                # Following Rasmussen2006
-  length_scale: .015   # \ell 
-  noise_var: 12.5     # \sigma_n^2 
-  signal_var: 3.0   # \sigma_f^2
-
-
-mean_init: [0.0, 0.0, 0.0]
-linear_init: [0.1, 0.1, 0.1]
-hinge_position_init: [0.0, 0.0, 0.6]
+  length_scale: 0.03   # \ell 
+  noise_var: 14.5     # \sigma_n^2 
+  signal_var: 3.5   # \sigma_f^2
 
 hyper_rot:
-  length_scale: 0.20
-  noise_var: 14.0
-  signal_var: 1.8
+  length_scale: 0.12
+  noise_var: 10.0
+  signal_var: 1.2
 
 model_path: GP_models.pkl
 num_model_points: 50
@@ -37,4 +32,4 @@ print_hyper: false
 plot: true
 plot_data: true
 plot_linear: false
-plot_extension: 0.3
+plot_extension: 0.1
