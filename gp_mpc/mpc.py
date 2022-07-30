@@ -107,8 +107,8 @@ class MPC:
             J[mode] += ca.sum2(Fk_next['st_cost'])
 
             g += [ca.reshape(Xk_next[:,:-1]-self.__vars['x_'+mode][:,:], N_x*(self.__N-1), 1)]
-            lbg += [ self.__constraint_slack]*N_x*(self.__N-1)*len(self.__modes)
-            ubg += [-self.__constraint_slack]*N_x*(self.__N-1)*len(self.__modes)
+            lbg += [ self.__constraint_slack]*N_x*(self.__N-1)
+            ubg += [-self.__constraint_slack]*N_x*(self.__N-1)
 
             if self.mpc_params['chance_prob'] != 0.0:
                 # Adding chance constraints for force
@@ -178,6 +178,7 @@ class MPC:
         w0 = self.__vars.get_x0()
 
         self.args = dict(x0=np.zeros(w.shape), lbx=lbw, ubx=ubw, lbg=lbg, ubg=ubg)
+        
         prob = {'f': J_total, 'x': w, 'g': ca.vertcat(*g), 'p': params.get_vector()}
         if not self.__precomp:
             self.solver = ca.nlpsol('solver', 'ipopt', prob, self.options)

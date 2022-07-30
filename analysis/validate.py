@@ -162,7 +162,7 @@ if __name__ == "__main__":
         for fi in files:
             print("Validating with file {}".format(fi))
             subprocess.Popen(["python3", "-m" "gp_mpc.control", "--path", args.path])
-            sleep(1.0)
+            sleep(5.0)
             subprocess.Popen(["rosbag", "record", "-a","-O","".join([args.path, "validate_", fi])])
             os.system("".join(["rosbag play -r 1.0 ", args.path, fi, " && rosnode kill -a"]))
 
