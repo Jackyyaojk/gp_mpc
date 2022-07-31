@@ -32,7 +32,7 @@ trim_workspace: 1.0 #0.43   # Data with z value higher than this are removed
 
 obs_noise: 0.1 # covariance of noise added to the observations
 
-opt_hyper: false
+opt_hyper: true
 print_hyper: false
 plot: true
 plot_data: true

@@ -53,6 +53,8 @@ class MPC:
         self.args['lam_x0'] = sol['lam_x']
         self.args['lam_g0'] = sol['lam_g']
 
+        #print(self.cost_debug.call([sol['x'], self.args['p']]))
+
         self.__vars.set_results(sol['x'])
         self.x_traj = {m:self.__vars['x_'+m] for m in self.__modes}
        #print(self.x_traj)
@@ -177,6 +179,7 @@ class MPC:
         w, lbw, ubw = self.__vars.get_dec_vectors()
         w0 = self.__vars.get_x0()
 
+        self.cost_debug = ca.Function('cost_debug', [w, params.get_vector()], [Fk_next['cost_debug']])
         self.args = dict(x0=np.zeros(w.shape), lbx=lbw, ubx=ubw, lbg=lbg, ubg=ubg)
         
         prob = {'f': J_total, 'x': w, 'g': ca.vertcat(*g), 'p': params.get_vector()}

@@ -106,20 +106,23 @@ class GPDynamics:
         if self.human_kin and self.__H_jt:
             shoulder_pos = self.mpc_params['human_kin']['center']
             if self.__H_jt is not 0.0:
-                f_joints, h_jac = self.human_joint_torques_cart(ca.vertcat(x[:3], init_pose[3:]),
+                f_joints, h_jac = self.human_joint_torques_cart(ca.vertcat(x_w[:3], init_pose[3:]),
                                                                 shoulder_pos,
                                                                 f_mu)
-                #f_adm_joints = h_jac.T@(imp_damp*(ca.fabs(x_next[N_p:2*N_p])+0.2*np.ones((3,1))))
-                f_adm_joints = h_jac.T@(imp_damp*0.2*np.ones((3,1)))
+                #imp_damp* ca.fabs(x_next[N_p:2*N_p])+
+                power_comp = imp_damp*(0.1*np.ones((3,1)))
+                power_world = compliance_to_world(init_pose, power_comp)
+                f_joints = h_jac.T@power_world
 
-                L += self.__H_jt*ca.sum1(ca.fabs(f_adm_joints))
+                L += self.__H_jt*ca.sumsqr(ca.sumsqr(f_joints))
+                #L += self.__H_jt*ca.sumsqr(imp_damp*(ca.sumsqr(x_w[:3]-self.mpc_params['human_kin']['center'])-0.1))
                 #jt_spd = ca.pinv(h_jac)@x_next[N_p:2*N_p]
                 #L += 0.2*self.__H_pow*ca.sumsqr(f_joints*jt_spd)
 
         dynamics = ca.Function('F_int', [x, u, init_pose, imp_mass, imp_damp],\
                                [x_next, L, f_mu, f_cov, f_joints], \
                                ['x', 'u', 'init_pose',  'imp_mass', 'imp_damp'], \
-                               ['xf', 'st_cost', 'hum_force_cart', 'f_cov', 'hum_force_joint'] )
+                               ['xf', 'st_cost', 'hum_force_cart', 'f_cov', 'cost_debug'] )
              # {"jit":True, "jit_options":{'flags':'-O3'}}) # Can JIT the dynamics, less helpful for typical problem
         return dynamics
 

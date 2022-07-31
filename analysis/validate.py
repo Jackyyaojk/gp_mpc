@@ -149,11 +149,10 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     model_path = args.path+"GP_models.pkl"
-
+    mpc_params = yaml_load(args.path, 'mpc_params.yaml')
     if args.rebuild_gp:
         if os.path.exists(model_path): os.remove(model_path)
         #subprocess.Popen(["python3", "-m" "gp_mpc.control", "--path", args.path])
-        mpc_params = yaml_load(args.path, 'mpc_params.yaml')
         models = gp_model(args.path, rotation = mpc_params['enable_rotation'])
         models.load_models(rebuild = True)
 
@@ -166,7 +165,7 @@ if __name__ == "__main__":
             subprocess.Popen(["rosbag", "record", "-a","-O","".join([args.path, "validate_", fi])])
             os.system("".join(["rosbag play -r 1.0 ", args.path, fi, " && rosnode kill -a"]))
 
-    fig = plt.figure(figsize=(4.5,4), dpi=250)
+    fig = plt.figure(figsize=(6.5,6), dpi=350)
     ax = fig.gca(projection='3d')
     # fig, ax =  plot_model_cov(model_path)
 
@@ -218,15 +217,20 @@ if __name__ == "__main__":
             ax.plot([p[0], p[0]],
                     [p[1], p[1]],
                     [p[2]-scale_M*M[0], p[2]+scale_M*M[0]],'b')
-        ax.view_init(elev=90, azim=0)
+        ax.view_init(elev=90, azim=90)
         ax.w_zaxis.line.set_lw(0.)
         ax.set_zticks([])
 
-    plt.xlabel('X (meter)')
+    #hc_plt = ax.plot(1.2, -0.0, 0.4, c = 'r', marker = 'o', ms = 10, label = 'Hum Shoulder')[0]
+
+    #plt.xlabel('X (meter)', labelpad=8)
     plt.ylabel('Y (meter)')
+    plt.xticks(fontsize=8)
+    plt.yticks(fontsize=8)
     ax.set_xlim([0.7, 1.15])
-    ax.set_ylim([-0.1, 0.35])
+    ax.set_ylim([0.125-0.225/2, 0.125+0.225/2])
+    ax.set_box_aspect((4, 2, 3))
     plt.subplots_adjust(left=-0.21, right=1.21, bottom=0.0, top=1)
     plt.tight_layout()
-    plt.legend(handles=[line_damp, line_mass],labels=['Damping', 'Mass'])   
+    #plt.legend(handles=[line_damp, line_mass, hc_plt],labels=['Damping', 'Mass', 'Hum Shoulder'], loc = 'center right') 
     plt.show()

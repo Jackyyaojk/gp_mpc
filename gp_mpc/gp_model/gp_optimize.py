@@ -65,9 +65,9 @@ def train_gp(X, Y, hyper, mean_func='zero', opts={}):
     loss = calc_NLL(hyper, X, Y, mean_func = mean_func)
 
     # Penalize the deviation in length scale
-    loss += 5000*ca.sumsqr(hyper.get_deviation('length_scale'))
-    loss += 3*ca.sumsqr(hyper.get_deviation('noise_var'))
-    loss += 3*ca.sumsqr(hyper.get_deviation('signal_var'))
+    loss += 2500*ca.sumsqr(hyper.get_deviation('length_scale'))
+    loss += 2*ca.sumsqr(hyper.get_deviation('noise_var'))
+    loss += 2*ca.sumsqr(hyper.get_deviation('signal_var'))
 
     x, lbx, ubx = hyper.get_dec_vectors()
  

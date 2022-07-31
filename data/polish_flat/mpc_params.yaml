@@ -1,8 +1,9 @@
 
 #### COST FUNCTION PARAMETERS  ####
-H: 10.0        # Human force cost
-H_jt: 0.0   # 10.0,  Human joint cost
-I: 370.0      # Human force covariance cos 
+H: 0.1        # Human force cost
+H_jt: 0.15   # 10.0,  Human joint cost
+H_pow: 0.0
+I: 300.0      # Human force covariance cos
 Q_pos: 0.0  # Position cost
 Q_vel: 0.0  # Velocity cost
 S: 10.0      # State covariance cost
@@ -49,7 +50,7 @@ well_damped_margin: 0 # 3.0
 sim: true
 
 # Disturbance rejection
-dist_rej: 0.0 # 9000
+dist_rej: 1000.0 # 9000
 dist_omega: 30.0
 
 match_force_setpoint: 0

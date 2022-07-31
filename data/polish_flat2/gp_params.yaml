@@ -8,7 +8,7 @@ simplify_cov_axis: 2  # Which axis to use for the reduced cov, default 0
 
 mean_func: zero
 hyper:                # Following Rasmussen2006
-  length_scale: 0.08   # \ell 
+  length_scale: 0.05   # 0.08 \ell 
   noise_var: 14.5     # \sigma_n^2 
   signal_var: 3.5   # \sigma_f^2
 #  mean: 0.0   # constant value of mean function

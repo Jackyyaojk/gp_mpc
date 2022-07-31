@@ -2,25 +2,25 @@
 #### COST FUNCTION PARAMETERS  ####
 H: 0.1        # Human force cost
 H_jt: 0.0   # Human joint cost
-H_pow: 0.0  
+H_pow: 1.0  
 I: 100      # Human force covariance cos
 Q_pos: 0.0  # Position cost
 Q_vel: 0.1  # Velocity cost
-S: 0.0      # State covariance cost
+S: 1500.0      # State covariance cost
 
 R: 0.15     # Contol cost
 u_lin_max: 30.0 # Max linear force (N)
 
 delta_B_cost: 0.0005
 delta_M_cost: 0.005
-delta_B_max: 5
-delta_M_max: 0.1
-B_min: 600
+delta_B_max: 150
+delta_M_max: 0.5
+B_min: 400
 M_min: 8
 B_max: 2000
 M_max: 20
-M_cost: 1.2  # 0.2
-B_cost: 0.0015 # 1.5e-6
+M_cost: 0.07  # 0.2
+B_cost: 0.00000005 # 1.5e-6
 
 Rr: 70.0    # Rotational control cost
 u_rot_max: 6.0 # Max rotational force (Nm)
@@ -48,10 +48,10 @@ chance_bnd: 0 # 30
 
 well_damped_margin: 0 # 3.0
 
-sim: false
+sim: true
 
 ##### DISTURBANCE REJECTION ####
-dist_rej: 000000
+dist_rej: 10000
 dist_omega: 10.0
 
 # Outputs and debug
