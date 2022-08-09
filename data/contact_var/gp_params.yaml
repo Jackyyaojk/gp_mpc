@@ -5,10 +5,11 @@ data_path:
   auto_no_var: !!set
     auto_00.bag: null
     auto_01.bag: null
-  #human_var: !!set
-  #  #man_00.bag: null
-  #  man_11.bag: null
-  #  man_21.bag: null
+  human_var: !!set
+    #man_00.bag: null
+    man_01.bag: null
+    man_11.bag: null
+    man_21.bag: null
   #soft: !!set
   #  stiff_var_soft.bag: null
   #med: !!set
@@ -42,7 +43,7 @@ simplify_cov_axis: 2        # Which axis to use for the reduced cov (default 0, 
 
 mean_func: hinge
 hyper:
-  length_scale: 0.2 #0.225   # \ell 
+  length_scale: 0.18 #0.225   # \ell 
   noise_var: 14.5      # \sigma_n^2
   signal_var: 1.25 #1.25     # \sigma_f^2
 hyper_rot:
@@ -52,7 +53,7 @@ hyper_rot:
 
 mean_init: [0.0,0.0,-50.0]
 linear_init: [0.0,0.0,30000]
-hinge_position_init: [0.0,0.0,0.35] #0.3585
+hinge_position_init: [0.0,0.0,0.358] #0.3585
 
 mag_dir: false
 model_path: data/GP_models.pkl

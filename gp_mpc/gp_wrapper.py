@@ -281,11 +281,11 @@ class gp_model():
         z = np.linspace(state_bounds[0][2]-exp, state_bounds[1][2]+exp, 275)
 
         z = z.flatten()
-        plt.plot((-.33885, -.31885),(0, 2100.0), color='k', label='contact forces', linewidth=4.0)
+        #plt.plot((-.33885, -.31885),(0, 2100.0), color='k', label='contact forces', linewidth=4.0)
         cnt_pt = -.33885
         env_stiff = 105000
         #plt.plot((cnt_pt, cnt_pt), (-100, 300.0), color='k', label='env contact', linewidth=2.0)
-        ax.fill_between((cnt_pt, cnt_pt+0.1), (-100, -100), (300, 300), color='k', alpha=.25)
+        #ax.fill_between((cnt_pt, cnt_pt+0.1), (-100, -100), (300, 300), color='k', alpha=.25)
         colors = ['r','g','b']
         for mode in self.modes:
             meansz = []
@@ -301,12 +301,12 @@ class gp_model():
                 covs.append(cov[2]) #1.5*np.linalg.norm(np.diag(cov)))
             meansz = np.array(meansz).flatten()
             Kes = np.array(Kes).flatten()
-            plt.plot(-z, meansz, color = c, label = mode+' model')
+            plt.plot(-z, meansz, color = c, label = mode)
             covs = np.array(covs)
             if np.any(covs<0):
                 print("Negative covariance found!!!")
             ax.fill_between(-z, (meansz-covs), (meansz+covs), color=c, alpha=.25)
-            plt.plot(-z, Kes, color = 'r', label = mode+' stiff')
+            #plt.plot(-z, Kes, color = 'r', label = mode+' stiff')
             X_data, Y_data = self.models[mode].get_data()
             plt.plot(-X_data[:,2], Y_data[:,2], '.', color=c, alpha=.25)
 
@@ -322,8 +322,8 @@ class gp_model():
 
         
 
-        #plt.ylim((-90,200))
-        #plt.xlim((-0.39, -0.33))
+        plt.ylim((-90,200))
+        plt.xlim((-0.46, -0.33))
 
         plt.show()
 
