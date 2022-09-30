@@ -1,6 +1,19 @@
 import yaml
 import casadi as ca
 import numpy as np
+import rospy
+from sensor_msgs.msg import JointState
+
+####################################################################################
+#### ROS functions
+
+def get_empty_jointstate():
+    msg = JointState()
+    msg.position = np.zeros(6)
+    msg.velocity = np.zeros(6)
+    msg.effort = np.zeros(12)
+    msg.header.stamp = rospy.Time.now()
+    return msg
 
 # Define the mapping from ROS msg to the state
 def msg_to_state(msg):
@@ -24,7 +37,7 @@ def compliance_to_world(init_pose, x):
         x_w = ca.vertcat(x_w, quat_to_rotvec(quat_quat_mult(xyz_to_quat(x[3:]), q0)))
     return x_w
 
-##############################################################################################################
+####################################################################################
 #### Welcome to the orientation zone ####
 #### Functions are grouped by the first representation in the argument list.
 

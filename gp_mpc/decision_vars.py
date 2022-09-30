@@ -54,8 +54,8 @@ class decision_var_set:
         """
         assert version_info >= (3, 6), "Python 3.6 required to guarantee dicts are ordered"
         self.__ty = symb_type     # Type of symbolic variable
-        self.__vars = {}         # Individual variables
-        self.__optimized = False # Flag if set_results has been called
+        self.__vars = {}          # Individual variables
+        self.__optimized = False  # Flag if set_results has been called
 
         for key in x0.keys():
             self[key] = decision_var(x0[key],
@@ -129,6 +129,9 @@ class decision_var_set:
         Returns difference between initial value and symbolic (or numeric) value
         """
         return self[key]-self.__vars[key].x0
+
+    def set_x0(self, key, x0):
+        self.__vars[key].x0 = x0
 
     def set_results(self, x_opt):
         """

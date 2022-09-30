@@ -20,20 +20,16 @@ class MPC:
         self.__dt = mpc_params['dt']                      # sample time
         self.__N_x = (2+2*mpc_params['state_cov'])*N_p    # number of states of ode
         self.__N_p = N_p
-
-        self.__gp_dynamics = gp_dynamics_dict
-        self.__modes = gp_dynamics_dict.keys()
-        self.__F_int = {mode:gp_dynamics_dict[mode].MDS_system().map(self.__N, 'serial') for mode in self.__modes}
-        self.__hum_FK = list(gp_dynamics_dict.values())[0].human_FK
-
-        # l:lower / u:upper bound on all decision variables, now built from dec_var object
-        # self.__lbd, self.__ubd = self.build_dec_var_constraints()
-
         self.__constraint_slack = mpc_params['constraint_slack']
         self.__precomp = mpc_params['precomp']
 
+        self.__gp_dynamics = gp_dynamics_dict
+        self.__modes = gp_dynamics_dict.keys()            # names of modes
+        self.__F_int = {mode:gp_dynamics_dict[mode].MDS_system().map(self.__N, 'serial') for mode in self.__modes}
+        self.__hum_FK = list(gp_dynamics_dict.values())[0].human_FK  # forward kinematics for human
+
         self.options = yaml_load(path, 'ipopt_params.yaml')
-        #jit_options = {"flags": ["-Os"], "verbose": True}
+        #jit_options = {"flags": ["-Os"], "verbose": True} # JIT options not found to help much
         #options = {"jit": True, "compiler": "shell", "jit_options": jit_options}
         #self.options.update(options)
 
@@ -41,10 +37,12 @@ class MPC:
         # params are the numerical values of initial robot pose, mode belief, and impedance parameters
 
         #Create problem and solver
-        if not hasattr(self, "solver"): self.build_solver(params)
+        if not hasattr(self, "solver"):
+            self.build_solver(params)
 
         # Update parameters for the solver
         self.args['p'] = ca.vertcat(*[params[el] for el in params.keys()])
+        
         # Solve the NLP
         sol = self.solver(**self.args)
 
@@ -55,42 +53,40 @@ class MPC:
 
         #print(self.cost_debug.call([sol['x'], self.args['p']]))
 
+        #print(sol['x'])
         self.__vars.set_results(sol['x'])
         self.x_traj = {m:self.__vars['x_'+m] for m in self.__modes}
-       #print(self.x_traj)
-        self.u_traj = self.__vars['u']
+        #print(self.x_traj)
+        self.des_force = self.__vars['u'][:,0]
         self.imp_mass = np.squeeze(self.__vars['imp_mass'])
         self.imp_damp = np.squeeze(self.__vars['imp_damp'])
 
-        return self.u_traj
-
-    def build_solver(self, params): # Formulate the NLP for multiple-shooting
+    # Formulate the NLP for multiple-shooting
+    def build_solver(self, params): 
         N_x = self.__N_x
         N_u = self.__N_p
         ty = ca.MX #if self.mpc_params['precomp'] else ca.SX # Type to use for MPC problem
            # MX has smaller memory footprint, SX is faster.  MX helps alot when using autogen C code.
-        # Symbolic varaibles for parameters, these get assigned to numerical values in solve()
-        params = param_set(params, symb_type = ty.sym)
 
         # Initialize empty NLP
-        J = {mode:0.0 for mode in self.__modes}     # Objective function
-        g = []    # Constraints function at the optimal solution (ng x 1)
-        lbg = []
-        ubg = []
+        J = {mode:0.0 for mode in self.__modes}  # Objective function
+        g = []    # constraints functions
+        lbg = []  # lower bound on constraints
+        ubg = []  # upper-bound on constraints
+        vars = {} # decision variables
 
-        vars = {}
+        # Symbolic varaibles for parameters, these get assigned to numerical values in solve()
+        params_sym = param_set(params, symb_type = ty.sym)
 
-        # Impedance
-        #if self.mpc_params['opti_MBK']:
-        vars['imp_mass'] = params['imp_mass']
-        vars['imp_damp'] = params['imp_damp']
-
+        # Build decision variables
+        vars['imp_mass'] = params_sym['imp_mass']
+        vars['imp_damp'] = params_sym['imp_damp']
         for m in self.__modes: vars['x_'+m] = np.zeros((N_x, self.__N-1))
         vars['u'] = np.zeros((N_u, self.__N))
-
         ub, lb = self.build_dec_var_constraints()
+        # Turn decision variables into a dec_var object
         self.__vars = decision_var_set(x0 = vars, ub = ub, lb = lb, symb_type = ty.sym)
-
+        
         if self.mpc_params['opti_MBK']:
             g += [self.__vars.get_deviation('imp_mass')]
             g += [self.__vars.get_deviation('imp_damp')]
@@ -102,7 +98,7 @@ class MPC:
         for mode in self.__modes:
             Fk_next = self.__F_int[mode](x = ca.horzcat(np.zeros((N_x, 1)), self.__vars['x_'+mode]),
                                          u = self.__vars['u'],
-                                         init_pose = params['init_pose'],
+                                         init_pose = params_sym['init_pose'],
                                          imp_mass = self.__vars['imp_mass'],
                                          imp_damp = self.__vars['imp_damp'])
             Xk_next = Fk_next['xf']
@@ -127,12 +123,12 @@ class MPC:
             if self.mpc_params['well_damped_margin'] != 0.0:
                 print('Adding well-damped constraint')
                 x = self.__vars['x_'+mode][:self.__N_p,0]
-                x += ca.DM([0, 0, 0.03])
+                #x += ca.DM([0, 0, 0.03])
                 #x = self.__vars['x_'+mode][3:3+self.__N_p,0]
-                #x = Xk_next[:self.__N_p,-1]
+                x = Xk_next[:self.__N_p,-1]
                 #x = 10*self.mpc_params['dt']*self.__vars['x_'+mode][3:3+self.__N_p,0]
 
-                x_w = compliance_to_world(params['init_pose'],x)
+                x_w = compliance_to_world(params_sym['init_pose'],x)
                 Ke = ca.MX(ca.fabs(self.__gp_dynamics[mode].gp_grad(x_w))[2,2])
                 #g += [self.__vars['imp_damp'][2]-2*ca.sqrt(self.__vars['imp_mass'][2]*(Ke))*self.mpc_params['well_damped_margin']]
                 g += [1e-2*(self.__vars['imp_damp'][2]*700-2*(self.__vars['imp_mass'][2]*(Ke))*self.mpc_params['well_damped_margin'])]
@@ -154,7 +150,7 @@ class MPC:
         if self.mpc_params['risk_sens'] == 0: # Expected cost
             J_total = J_u_total
             for mode in self.__modes:
-                J_total += params['belief_'+mode]*J[mode] # expected value
+                J_total += params_sym['belief_'+mode]*J[mode] # expected value
         else: # Risk-sensitive formulation. See, e.g. Medina2012
             for mode in self.__modes:
                 J_total += belief[mode]*ca.exp(-0.5*self.mpc_params['risk_sens']*(J[mode]))
@@ -172,17 +168,19 @@ class MPC:
             force_signal = Sys([1, 0],[1, self.mpc_params['dist_omega']])
             self.dist_signal1 = admittance_TF1*force_signal
             self.dist_signal2 = admittance_TF2*force_signal
-            J_total += self.mpc_params['dist_rej']*self.dist_signal1.h2(sol = 'lapackqr')
-            J_total += self.mpc_params['dist_rej']*self.dist_signal2.h2(sol = 'lapackqr') #solver: scipy, ma27, lapackqr, ldl. Probably just need scipy if poorly conditioned, otherwise the other solvers are casadi native  and faster.
+            J_total += self.mpc_params['dist_rej']*self.dist_signal1.h2(sol = 'scipy') #'lapackqr')
+            J_total += self.mpc_params['dist_rej']*self.dist_signal2.h2(sol = 'scipy') #'lapackqr') #solver: scipy, ma27, lapackqr, ldl. Probably just need scipy if poorly conditioned, otherwise the other solvers are casadi native  and faster.
 
         # Set up dictionary of arguments to solve
         w, lbw, ubw = self.__vars.get_dec_vectors()
+        self.__vars.set_x0('imp_mass', params['imp_mass'])
+        self.__vars.set_x0('imp_damp', params['imp_damp'])
         w0 = self.__vars.get_x0()
-
-        self.cost_debug = ca.Function('cost_debug', [w, params.get_vector()], [Fk_next['cost_debug']])
-        self.args = dict(x0=np.zeros(w.shape), lbx=lbw, ubx=ubw, lbg=lbg, ubg=ubg)
         
-        prob = {'f': J_total, 'x': w, 'g': ca.vertcat(*g), 'p': params.get_vector()}
+        self.cost_debug = ca.Function('cost_debug', [w, params_sym.get_vector()], [Fk_next['cost_debug']])
+        self.args = dict(x0=w0, lbx=lbw, ubx=ubw, lbg=lbg, ubg=ubg)
+        
+        prob = {'f': J_total, 'x': w, 'g': ca.vertcat(*g), 'p': params_sym.get_vector()}
         if not self.__precomp:
             self.solver = ca.nlpsol('solver', 'ipopt', prob, self.options)
             #self.solver = ca.nlpsol('solver', 'blocksqp', prob, {})
