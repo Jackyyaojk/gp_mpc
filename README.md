@@ -16,7 +16,7 @@ Solve an MPC problem where:
 
 Repo also includes code for building/fitting GP models from rosbags and visualizing them.
 
-Code associated with `https://arxiv.org/abs/2110.12433`
+Code associated with `https://arxiv.org/abs/2110.12433` and `https://arxiv.org/abs/2208.07035`
 
 
 ## Software Requirements
@@ -26,12 +26,13 @@ Code associated with `https://arxiv.org/abs/2110.12433`
 
 # Quickstart
  - [ ] Install dependencies
- - [ ] `git clone https://gitlab.cc-asp.fraunhofer.de/hanikevi/gp-mpc-impedance-control`
+ - [ ] `git clone --recurse-submodules https://gitlab.cc-asp.fraunhofer.de/hanikevi/gp-mpc-impedance-control`
  - [ ] Collect demonstrations:
    - [ ] `rosbag record -a`
-   - [ ] Do demonstrations. We've mostly tested with three demos, few/more might be OK.
+   - [ ] Do demonstrations. We've mostly tested with three demos, fewer/more might be OK.
    - [ ] Adjust `gp_params.yaml` to point to data for each goal/mode
  - [ ] Re-write the ROS interface
+   - [ ] Adjust topic names for robot pose and force `control.py::70-76`
    - [ ] `helper_fns.py::msg_to_state` - mapping from robot state ROS message to pose [x, r], where x is in meters and r is rotation vector in rad
    - [ ]   `helper_fns.py::msg_to_obs` mapping from robot ros message to forces [f, t], where f is linear force in robot TCP pose, and t torques
  - [ ] `python3 -m gp_mpc.control`, optionally with arguments, e.g. `--path data/contact_var/` or `--rebuild_gp`
