@@ -100,7 +100,7 @@ class mpc_impedance_control():
 
         # If multiple modes and there is external force, update the mode belief
         if len(self.modes) > 1 and np.linalg.norm(self.obs[:3]) > self.mode_detector_params['min_force']:
-            bel_arr = self.mode_detector.update_belief(self.obs[:self.state_dim], self.state[self.state_dim])
+            bel_arr = self.mode_detector.update_belief(self.obs[:self.state_dim], self.state[:self.state_dim])
             if self.pub_belief:
                 msg_belief = Float64MultiArray(data = bel_arr)
                 self.pub_belief.publish(msg_belief)

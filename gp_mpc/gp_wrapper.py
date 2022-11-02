@@ -213,9 +213,9 @@ class gp_model():
                 mu = force_comp_to_world(test_pt, mu)
                 means.append(mu.full())
                 if np.any(np.diag(cov)<0): print("Test point had neg cov! {}".format(cov))
-                covs.append(0.5*np.linalg.norm(np.diag(cov)))
+                covs.append(0.5*np.sum(np.diag(cov)))
             means = np.array(means).squeeze()
-            ax.quiver(x, y, z, means[:,0], means[:,1], means[:,2], length=0.002, color = c)
+            ax.quiver(x, y, z, means[:,0], means[:,1], means[:,2], length=0.05, color = c)
             ax2.scatter(x+offset, y+offset, z+offset, s=covs, color = c)
             offset += 0.02
         ax.set_xlabel('X')

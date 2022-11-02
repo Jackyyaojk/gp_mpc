@@ -201,6 +201,7 @@ class GPDynamics:
         q4=jts[3]
         l1 = self.human_kin['lengths'][0]
         l2 = self.human_kin['lengths'][1]
+    
         wrist_pos = deepcopy(shoulder_pos)
         wrist_pos[0] += l1*ca.cos(q1)*ca.cos(q2)
         wrist_pos[1] += l1*ca.sin(q1)*ca.cos(q2)

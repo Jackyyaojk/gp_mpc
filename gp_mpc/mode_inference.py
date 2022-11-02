@@ -17,10 +17,12 @@ class mode_detector():
         self.bel = {mode:1.0/len(self.modes) for mode in self.modes}
 
     def update_belief(self, obs, state):
+        #print('state: {}'.format(state))
         normalization_constant = 0
         for mode in self.modes:
             if self.params['use_direction']:
                 lik = self.predict_llik_dir(state, obs, mode)
+                #print('Mode {} likelihood {}'.format(mode, lik))
                 if np.isnan(lik): lik = 0
                 self.log_bel[mode] += lik/self.params['bel_smoothing']
             else:
@@ -56,7 +58,11 @@ class mode_detector():
     def predict_llik_dir(self, x, y, mode):
         """ Give log likelihod of a model having that observation
         """
-        mean, var = self.models[mode].predict_fast(x)
+        mean, var = self.models[mode].predict(x, cov=0)
+        mean = mean.full()
+        var = var.full()
+        print(x)
+        print('mode {}, mean {}, var {}'.format(mode, mean, var))
         pred_mag = np.linalg.norm(mean)
         real_mag = np.linalg.norm(y)
         pred_normed = mean/pred_mag
@@ -71,7 +77,7 @@ class mode_detector():
 
         dir_sim *= real_mag/20.0 # weight the similarity less when the magnitude is smaller
         mag_sim = np.abs((pred_mag-real_mag)/real_mag)
-        log_var = 0.1*np.sum(np.log(np.abs(var)))
+        log_var = 1.0*np.sum(np.log(np.abs(var)))
         #print('dir: {}, mag: {}, log cov: {}, mode: {}'.format(dir_sim, mag_sim, log_var, mode))
         return dir_sim-log_var
 

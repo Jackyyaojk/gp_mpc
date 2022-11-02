@@ -1,27 +1,26 @@
 
 #### COST FUNCTION PARAMETERS  ####
-H: 1        # Human force cost
+H: 0.1        # Human force cost
 H_jt: 0.0   # Human joint cost
-H_pow: 0.0  
-I: 1570      # Human force covariance cos
+H_pow: 1.0  
+I: 100      # Human force covariance cos
 Q_pos: 0.0  # Position cost
 Q_vel: 0.1  # Velocity cost
-S: 100.0      # State covariance cost
+S: 1500.0      # State covariance cost
 
-R: 0.30     # Contol cost
-u_lin_max: 20.0 # Max linear force (N)
+R: 0.15     # Contol cost
+u_lin_max: 30.0 # Max linear force (N)
 
 delta_B_cost: 0.0005
 delta_M_cost: 0.005
-M_cost: 500
-delta_B_max: 5
-delta_M_max: 0.1
-B_min: 500
-M_min: 8
+delta_B_max: 150
+delta_M_max: 0.5
+B_min: 400
+M_min: 6
 B_max: 2000
 M_max: 20
-M_cost: 0.2  # 0.2
-B_cost: 0.0000015 # 1.5e-6
+M_cost: 0.07  # 0.2
+B_cost: 0.00000005 # 1.5e-6
 
 Rr: 70.0    # Rotational control cost
 u_rot_max: 6.0 # Max rotational force (Nm)
@@ -30,9 +29,9 @@ u_rot_max: 6.0 # Max rotational force (Nm)
 enable_rotation: false
 match_human_force: true     # Cost function penalizes |f_human -j u| instead of |f_human|
 match_force_setpoint: 0
-match_force_setpoint_weight: 0
+match_force_setpoint_weight:  0
 risk_sens: -0.0             # -0.02 is OK. If 0, standard expected cost used
-simplify_cov: false          # Use only  first element in GP covariance, axis specified in gp_params
+simplify_cov: true          # Use only  first element in GP covariance, axis specified in gp_params
 integrator: 'implicit'      # 'explicit'      # explicit, semi-implicit, or trapezoidal
 state_cov: true            # Integrate uncertainty in state (pos + vel)
 opti_MBK: false             # Jointly optimize M/B/K params
