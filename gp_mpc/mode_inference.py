@@ -61,8 +61,6 @@ class mode_detector():
         mean, var = self.models[mode].predict(x, cov=0)
         mean = mean.full()
         var = var.full()
-        print(x)
-        print('mode {}, mean {}, var {}'.format(mode, mean, var))
         pred_mag = np.linalg.norm(mean)
         real_mag = np.linalg.norm(y)
         pred_normed = mean/pred_mag
