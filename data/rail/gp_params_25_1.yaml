@@ -1,0 +1,40 @@
+data_path:
+  rail: !!set
+    1.bag: null
+    2.bag: null
+    3.bag: null
+gp_method: ME         # Input uncertainty method, ME = mean equiv, TA = taylor approx
+simplify_cov_axis: 2  # Which axis to use for the reduced cov, default 0
+
+mean_func: zero #hinge #linear #const #linear
+hyper:                # Following Rasmussen2006
+  length_scale: .010   # \ell 
+  noise_var: 12.5     # \sigma_n^2 
+  signal_var: 2.5   # \sigma_f^2
+
+
+mean_init: [0.0, 0.0, 0.0]
+linear_init: [0.1, 0.1, 0.1]
+hinge_position_init: [0.0, 0.0, 0.6]
+
+hyper_rot:
+  length_scale: 0.20
+  noise_var: 14.0
+  signal_var: 1.8
+
+model_path: GP_models.pkl
+num_model_points: 25
+
+num_sparse_points: 0
+trim_thresh_force: 0.0 # Data with force less than this are removed 
+trim_thresh_init: 0.05 # Data within this distance of init are removed
+trim_workspace: 1.0 #0.43   # Data with z value higher than this are removed
+
+obs_noise: 0.1 # covariance of noise added to the observations
+
+opt_hyper: false
+print_hyper: false
+plot: false
+plot_data: false
+plot_linear: false
+plot_extension: 0.3
