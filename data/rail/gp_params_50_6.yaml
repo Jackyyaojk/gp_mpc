@@ -3,6 +3,27 @@ data_path:
     1.bag: null
     2.bag: null
     3.bag: null
+  rail2: !!set
+    1.bag: null
+    2.bag: null
+    3.bag: null
+  rail3: !!set
+    1.bag: null
+    2.bag: null
+    3.bag: null
+  rail4: !!set
+    1.bag: null
+    2.bag: null
+    3.bag: null
+  rail5: !!set
+    1.bag: null
+    2.bag: null
+    3.bag: null
+  rail6: !!set
+    1.bag: null
+    2.bag: null
+    3.bag: null
+
 gp_method: ME         # Input uncertainty method, ME = mean equiv, TA = taylor approx
 simplify_cov_axis: 2  # Which axis to use for the reduced cov, default 0
 

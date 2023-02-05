@@ -24,7 +24,7 @@ def bag_loader(path, map_and_append_msg, topic_name = 'robot_state', normalize =
     '''
     bag = rosbag.Bag(path)
     num_obs = bag.get_message_count(topic_name)
-    if num_obs is 0:
+    if num_obs == 0:
         topic_name = '/'+topic_name
         num_obs = bag.get_message_count(topic_name)
     print('Loading ros bag {}  with {} msgs on topic {}'.format(path, num_obs, topic_name))
@@ -42,7 +42,7 @@ def bag_loader(path, map_and_append_msg, topic_name = 'robot_state', normalize =
         msgs_in_order[key] = np.array(el_in_order).T
     msgs_in_order['t'] = t_in_order
 
-    if normalize is not '':
+    if normalize != '':
         msgs_in_order[normalize] = (msgs_in_order[normalize].T-msgs_in_order[normlize][:,0]).T
 
     return msgs_in_order
@@ -66,7 +66,7 @@ def get_aligned_msgs(msgs1, msgs2):
     return aligned_msgs2
 
 def map_robot_state(msg, prev_msgs):
-    if len(prev_msgs) is 0:
+    if len(prev_msgs) == 0:
         for el in ('pos', 'vel', 'force'):
             prev_msgs[el] = []
     prev_msgs['pos'].append(msg.position)
@@ -75,7 +75,7 @@ def map_robot_state(msg, prev_msgs):
     return prev_msgs
 
 def map_impedance_gains(msg, prev_msgs):
-    if len(prev_msgs) is 0:
+    if len(prev_msgs) == 0:
         for el in ('K', 'B', 'M', 'Fd'):
             prev_msgs[el] = []
     prev_msgs['K'].append(msg.position)
@@ -84,7 +84,7 @@ def map_impedance_gains(msg, prev_msgs):
     prev_msgs['Fd'].append(msg.effort[len(msg.position):])
 
 def map_delta_impedance_gains(msg, prev_msgs):
-    if len(prev_msgs) is 0:
+    if len(prev_msgs) == 0:
         for el in ('dK', 'dB', 'dM', 'Fd'):
             prev_msgs[el] = []
     prev_msgs['dK'].append(msg.position)
@@ -143,6 +143,7 @@ if __name__ == "__main__":
     parser.add_argument("-p", "--path", default="data/rail/", help="Root folder for data & config")
     parser.add_argument("--rebuild_gp", default=False, action='store_true',
                         help="Force a new Gaussian process to build")
+    parser.add_argument("--gp_params_file", default='gp_params', help="The gp_config file name without the yaml suffix")
     parser.add_argument("--skip_validate", default=False, action='store_true',
                         help="Skip the evaluation step, use ready .bags to plot")
     parser.add_argument("-f","--files", nargs='+', help='Files to validate on', required=False)
@@ -153,7 +154,7 @@ if __name__ == "__main__":
     if args.rebuild_gp:
         if os.path.exists(model_path): os.remove(model_path)
         #subprocess.Popen(["python3", "-m" "gp_mpc.control", "--path", args.path])
-        models = gp_model(args.path, rotation = mpc_params['enable_rotation'])
+        models = gp_model(args.path, rotation = mpc_params['enable_rotation'], params_file = args.gp_params_file)
         models.load_models(rebuild = True)
 
     files = args.files
@@ -164,7 +165,7 @@ if __name__ == "__main__":
             sleep(5.0)
             subprocess.Popen(["rosbag", "record", "-a","-O","".join([args.path, "validate_", fi])])
             os.system("".join(["rosbag play -r 1.0 ", args.path, fi, " && rosnode kill -a"]))
-
+'''
     fig = plt.figure(figsize=(6.5,6), dpi=350)
     ax = fig.gca(projection='3d')
     # fig, ax =  plot_model_cov(model_path)
@@ -234,3 +235,4 @@ if __name__ == "__main__":
     plt.tight_layout()
     #plt.legend(handles=[line_damp, line_mass, hc_plt],labels=['Damping', 'Mass', 'Hum Shoulder'], loc = 'center right') 
     plt.show()
+'''

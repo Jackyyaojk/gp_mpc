@@ -19,15 +19,15 @@ class gp_model():
     '''
     This class wraps the GP class from gp_model adding modes, data loading, and plotting
     '''
-    def __init__(self, path, rotation = False):
+    def __init__(self, path, rotation = False, params_file = 'gp_params'):
         self.rotation = rotation
         self.state_dim = 3+3*rotation
 
         self.state  = {}
         self.obs    = {}
         self.models = {}
-
-        self.gp_params = yaml_load(path, 'gp_params.yaml')
+        
+        self.gp_params = yaml_load(path, params_file+'.yaml')
         #self.gp_params = gp_params
         self.path = path #self.gp_params["path"]
         self.validate_params()

@@ -23,7 +23,7 @@ hyper_rot:
   signal_var: 1.8
 
 model_path: GP_models.pkl
-num_model_points: 50
+num_model_points: 200
 
 num_sparse_points: 0
 trim_thresh_force: 0.0 # Data with force less than this are removed 
