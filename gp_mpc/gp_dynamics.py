@@ -35,20 +35,18 @@ class GPDynamics:
         w = {}
         N_p = self.__N_p
         cov_flag = self.mpc_params['state_cov']
-        u = ca.SX.sym('u', N_p)
+        
         x = ca.SX.sym('x', 2*N_p+cov_flag*2*N_p)
         x_next = ca.SX(2*N_p+cov_flag*2*N_p,1) # state at next time step
         x_pos_cov = ca.diag(x[2*N_p:3*N_p]) if self.mpc_params['state_cov'] else []
-        hum_jts = ca.SX.sym('hums', 4) if self.mpc_params['opti_hum_jts'] else []
-
+      
         # Defining parameters
-        imp_mass = ca.SX.sym('imp_mass',N_p)
+        imp_mass = ca.SX.sym('imp_mass', N_p)
         imp_damp = ca.SX.sym('imp_damp', N_p)
+        imp_stiff = ca.SX.sym('imp_stiff', N_p)
+        des_pose = ca.SX.sym('des_pose', N_p) # Initial robot pose, position + rotation vector
         init_pose = ca.SX.sym('init_pose', 6) # Initial robot pose, position + rotation vector
-        return u, x, x_next, x_pos_cov, hum_jts, imp_mass, imp_damp, init_pose
-
-
-   # def integrator(self, x, u, f_mu, imp_params, x_next):
+        return x, x_next, x_pos_cov, imp_mass, imp_damp, imp_stiff, des_pose, init_pose
 
     # Defines a mass-spring-damper system with a GP force model
     def MDS_system(self):
@@ -56,73 +54,40 @@ class GPDynamics:
         N_p = self.__N_p    # Num of positions in system
         dt = self.__dt      # Time step for discretization
 
-        u, x, x_next, x_pos_cov, hum_jts, imp_mass, imp_damp, init_pose = self.build_dec_vars()
+        x, x_next, x_pos_cov, imp_mass, imp_damp, imp_stiff, des_pose, init_pose = self.build_dec_vars()
 
         x_w = compliance_to_world(init_pose, x[:self.__N_p])
         f_mu, f_cov = self.__gp.predict(x=x_w[:self.__N_p], cov=[], fast = self.mpc_params['simplify_cov'])
+
 
         # For each DOF, apply the dynamics update
         f_cov_array = []
         for i in range(N_p):
             #kn = dt*K_k/M_k
-            if self.mpc_params['integrator']  == 'implicit':
-                bn = imp_mass[i]/(imp_mass[i]+dt*imp_damp[i])
-            else:
-                bn = ca.exp(-dt*imp_damp[i]/imp_mass[i])
-
-            # Velocity first b/c that's needed for semi-implicit
-            #x_next[i+N_p] =  bn*x[i+N_p]+dt/(imp_mass[i]+dt*imp_damp[i])*(-f_mu[i]+u[i]) # -kn*x[i]
-            x_next[i+N_p] =  bn*x[i+N_p]+dt/imp_mass[i]*(-f_mu[i]+u[i]) # -kn*x[i]
             
-
-            # Position
-            if self.mpc_params['integrator'] == 'explicit':
-                x_next[i] = x[i]+dt*x[i+N_p]
-            elif self.mpc_params['integrator'] == 'implicit':
-                x_next[i] = x[i]+dt*x_next[i+N_p] #x_next[i+N_p]
-            else:
-                print('Integrator {} not supported'.format(self.mpc_params['integrator']))
-
+            bn = imp_mass[i]/(imp_mass[i]+dt*imp_damp[i])
+            
+            # Velocity first b/c that's needed for semi-implicit
+            x_next[i+N_p] =  bn*x[i+N_p]+dt/imp_mass[i]*(-f_mu[i]-imp_stiff[i]*(x_w[i]-des_pose[i]))
+            x_next[i] = x[i]+dt*x_next[i+N_p] #x_next[i+N_p]
+            
             # Update state covariance
             if self.mpc_params['state_cov']:
                 x_next[i+2*N_p] = x[i+2*N_p]+dt*dt*x[i+3*N_p] # cov pos
                 f_cov_tmp = f_cov[0] if self.mpc_params['simplify_cov'] else f_cov[i]
+                #TODO add the stiffness reduction in cov here
                 x_next[i+3*N_p] = bn**2*x[i+3*N_p]+10*(dt/imp_mass[i])**2*f_cov_tmp
                 if i < 3: f_cov_array.append(f_cov_tmp)
 
+    
         # Define stagecost L, note control costs happen in main MPC problem as control shared btwn modes
-        L = self.__Q_vel*ca.sumsqr(x_next[N_p:2*N_p]) + self.__R*ca.sumsqr(u[:3]) + self.__I*ca.sum1(f_cov)
+        L = self.__Q_vel*ca.sumsqr(x_next[N_p:2*N_p])
         if N_p == 6: L += self.__Rr*ca.sumsqr(u[3:6])
         if self.mpc_params['state_cov']: L += self.__S*ca.sum1(x_next[2*N_p:])
-
-        # Add cost for total force or error from expected human force
-        L += self.__H*ca.sumsqr(f_mu+u[:N_p]) if self.mpc_params['match_human_force'] else self.__H*ca.sumsqr(f_mu) 
-        if self.__H_pow is not None:
-            L += self.__H_pow*f_mu.T@x_next[N_p:2*N_p]
-
-        # Add human kinematic model + cost, if modelling human kinematics
-        f_joints = []
-        hum_kin_opti = []
-        if self.human_kin and self.__H_jt:
-            shoulder_pos = self.mpc_params['human_kin']['center']
-            if self.__H_jt is not 0.0:
-                f_joints, h_jac = self.human_joint_torques_cart(ca.vertcat(x_w[:3], init_pose[3:]),
-                                                                shoulder_pos,
-                                                                f_mu)
-                #imp_damp* ca.fabs(x_next[N_p:2*N_p])+
-                power_comp = imp_damp*(0.1*np.ones((3,1)))
-                power_world = compliance_to_world(init_pose, power_comp)
-                f_joints = h_jac.T@power_world
-
-                L += self.__H_jt*ca.sumsqr(ca.sumsqr(f_joints))
-                #L += self.__H_jt*ca.sumsqr(imp_damp*(ca.sumsqr(x_w[:3]-self.mpc_params['human_kin']['center'])-0.1))
-                #jt_spd = ca.pinv(h_jac)@x_next[N_p:2*N_p]
-                #L += 0.2*self.__H_pow*ca.sumsqr(f_joints*jt_spd)
-
-        dynamics = ca.Function('F_int', [x, u, init_pose, imp_mass, imp_damp],\
-                               [x_next, L, f_mu, f_cov, f_joints], \
-                               ['x', 'u', 'init_pose',  'imp_mass', 'imp_damp'], \
-                               ['xf', 'st_cost', 'hum_force_cart', 'f_cov', 'cost_debug'] )
+        dynamics = ca.Function('F_int', [x, des_pose, init_pose, imp_mass, imp_damp, imp_stiff],\
+                               [x_next, L, x_w], \
+                               ['x', 'des_pose', 'init_pose',  'imp_mass', 'imp_damp', 'imp_stiff'], \
+                               ['xf', 'st_cost', 'debug'] )
              # {"jit":True, "jit_options":{'flags':'-O3'}}) # Can JIT the dynamics, less helpful for typical problem
         return dynamics
 

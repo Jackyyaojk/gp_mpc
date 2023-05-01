@@ -11,17 +11,15 @@ S: 100.0      # State covariance cost
 R: 0.30     # Contol cost
 u_lin_max: 20.0 # Max linear force (N)
 
-delta_B_cost: 0.0005
-delta_M_cost: 0.005
-M_cost: 500
-delta_B_max: 5
-delta_M_max: 0.1
-B_min: 500
-M_min: 8
-B_max: 2000
-M_max: 20
-M_cost: 0.2  # 0.2
-B_cost: 0.0000015 # 1.5e-6
+imp_mass: 5
+delta_K_max: 50
+K_min: 0
+K_max: 400
+K_cost: 0.1
+
+delta_xd_max: 0.01
+
+
 
 Rr: 70.0    # Rotational control cost
 u_rot_max: 6.0 # Max rotational force (Nm)

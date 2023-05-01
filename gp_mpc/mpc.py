@@ -25,9 +25,9 @@ class MPC:
 
         self.__gp_dynamics = gp_dynamics_dict
         self.__modes = gp_dynamics_dict.keys()            # names of modes
-        self.__F_int = {mode:gp_dynamics_dict[mode].MDS_system().map(self.__N, 'serial') for mode in self.__modes}
-        self.__hum_FK = list(gp_dynamics_dict.values())[0].human_FK  # forward kinematics for human
-
+        #self.__F_int = {mode:gp_dynamics_dict[mode].MDS_system().map(self.__N, 'serial') for mode in self.__modes}
+        self.__F_int = {mode:gp_dynamics_dict[mode].MDS_system() for mode in self.__modes}
+    
         self.options = yaml_load(path, 'ipopt_params.yaml')
         #jit_options = {"flags": ["-Os"], "verbose": True} # JIT options not found to help much
         #options = {"jit": True, "compiler": "shell", "jit_options": jit_options}
@@ -51,16 +51,13 @@ class MPC:
         self.args['lam_x0'] = sol['lam_x']
         self.args['lam_g0'] = sol['lam_g']
 
-        #print(self.cost_debug.call([sol['x'], self.args['p']]))
-
         #print(sol['x'])
         self.__vars.set_results(sol['x'])
         self.x_traj = {m:self.__vars['x_'+m] for m in self.__modes}
         #print(self.x_traj)
-        self.des_force = self.__vars['u'][:,0]
-        self.imp_mass = np.squeeze(self.__vars['imp_mass'])
-        self.imp_damp = np.squeeze(self.__vars['imp_damp'])
-
+        self.des_pose = self.__vars['des_pose']
+        self.imp_stiff = np.squeeze(self.__vars['imp_stiff'])
+        
     # Formulate the NLP for multiple-shooting
     def build_solver(self, params): 
         N_x = self.__N_x
@@ -74,110 +71,61 @@ class MPC:
         lbg = []  # lower bound on constraints
         ubg = []  # upper-bound on constraints
         vars = {} # decision variables
-
+        print(params)
         # Symbolic varaibles for parameters, these get assigned to numerical values in solve()
         params_sym = param_set(params, symb_type = ty.sym)
 
         # Build decision variables
-        vars['imp_mass'] = params_sym['imp_mass']
-        vars['imp_damp'] = params_sym['imp_damp']
+        imp_mass = self.mpc_params['imp_mass']*np.ones(3)
+        vars['imp_stiff'] = params_sym['imp_stiff']
+        vars['des_pose'] = params_sym['init_pose'][:3]
         for m in self.__modes: vars['x_'+m] = np.zeros((N_x, self.__N-1))
-        vars['u'] = np.zeros((N_u, self.__N))
         ub, lb = self.build_dec_var_constraints()
+        
         # Turn decision variables into a dec_var object
         self.__vars = decision_var_set(x0 = vars, ub = ub, lb = lb, symb_type = ty.sym)
         
         if self.mpc_params['opti_MBK']:
-            g += [self.__vars.get_deviation('imp_mass')]
-            g += [self.__vars.get_deviation('imp_damp')]
-            lbg += [-self.mpc_params['delta_M_max']]*self.__N_p
-            lbg += [-self.mpc_params['delta_B_max']]*self.__N_p
-            ubg += [self.mpc_params['delta_M_max']]*self.__N_p
-            ubg += [self.mpc_params['delta_B_max']]*self.__N_p
+            g += [self.__vars.get_deviation('imp_stiff')]
+            lbg += [-self.mpc_params['delta_K_max']]*self.__N_p
+            ubg += [self.mpc_params['delta_K_max']]*self.__N_p
+            g += [self.__vars.get_deviation('des_pose')]
+            lbg += [-self.mpc_params['delta_xd_max']]*self.__N_p
+            ubg += [self.mpc_params['delta_xd_max']]*self.__N_p
 
         for mode in self.__modes:
+                  
             Fk_next = self.__F_int[mode](x = ca.horzcat(np.zeros((N_x, 1)), self.__vars['x_'+mode]),
-                                         u = self.__vars['u'],
+                                         des_pose = self.__vars['des_pose'],
                                          init_pose = params_sym['init_pose'],
-                                         imp_mass = self.__vars['imp_mass'],
-                                         imp_damp = self.__vars['imp_damp'])
+                                         imp_mass = imp_mass,
+                                         imp_damp = 2*ca.sqrt(vars['imp_stiff']),
+                                         imp_stiff = self.__vars['imp_stiff'])
             Xk_next = Fk_next['xf']
+            
             J[mode] += ca.sum2(Fk_next['st_cost'])
 
             g += [ca.reshape(Xk_next[:,:-1]-self.__vars['x_'+mode][:,:], N_x*(self.__N-1), 1)]
             lbg += [ self.__constraint_slack]*N_x*(self.__N-1)
             ubg += [-self.__constraint_slack]*N_x*(self.__N-1)
 
-            if self.mpc_params['chance_prob'] != 0.0:
-                # Adding chance constraints for force
-                chance_const = self.mpc_params['chance_bnd'] - Fk_next['hum_force_cart'][2, -1]# [-1,2]
-                chance_const -= ca.erfinv(self.mpc_params['chance_prob'])*ca.sqrt(Fk_next['f_cov'][-1])
-                g += [chance_const.T]
-                chance_const = self.mpc_params['chance_bnd'] - Fk_next['hum_force_cart'][2, 0]# [-1,2]
-                chance_const -= ca.erfinv(self.mpc_params['chance_prob'])*ca.sqrt(Fk_next['f_cov'][-1])
-                print("Adding chance constraints")
-                g += [chance_const.T]
-                lbg += list(np.zeros(2))
-                ubg += list(np.full(2, np.inf))
-
-            if self.mpc_params['well_damped_margin'] != 0.0:
-                print('Adding well-damped constraint')
-                x = self.__vars['x_'+mode][:self.__N_p,0]
-                #x += ca.DM([0, 0, 0.03])
-                #x = self.__vars['x_'+mode][3:3+self.__N_p,0]
-                x = Xk_next[:self.__N_p,-1]
-                #x = 10*self.mpc_params['dt']*self.__vars['x_'+mode][3:3+self.__N_p,0]
-
-                x_w = compliance_to_world(params_sym['init_pose'],x)
-                Ke = ca.MX(ca.fabs(self.__gp_dynamics[mode].gp_grad(x_w))[2,2])
-                #g += [self.__vars['imp_damp'][2]-2*ca.sqrt(self.__vars['imp_mass'][2]*(Ke))*self.mpc_params['well_damped_margin']]
-                g += [1e-2*(self.__vars['imp_damp'][2]*700-2*(self.__vars['imp_mass'][2]*(Ke))*self.mpc_params['well_damped_margin'])]
-                lbg += list(np.zeros(1))
-                ubg += list(np.full(1, np.inf))
-
         # Calculate total objective
         J_total = 0.0
-        J_u_total = self.mpc_params['R']*ca.sumsqr(self.__vars['u'])
-        if self.mpc_params['match_force_setpoint']:
-            J_u_total += self.mpc_params['match_force_setpoint_weight']*\
-                ca.sumsqr(ca.fmax(self.mpc_params['match_force_setpoint']-self.__vars['u'][2,:], 0))
+        J_u_total = self.mpc_params['R']*ca.sumsqr(self.__vars.get_deviation('des_pose'))
         if self.mpc_params['opti_MBK']:
-            J_u_total += self.mpc_params['delta_M_cost']*ca.sumsqr(self.__vars.get_deviation('imp_mass'))
-            J_u_total += self.mpc_params['delta_B_cost']*ca.sumsqr(self.__vars.get_deviation('imp_damp'))
-            J_u_total += self.mpc_params['M_cost']*ca.sumsqr(self.__vars['imp_mass'])
-            J_u_total += self.mpc_params['B_cost']*ca.sumsqr(self.__vars['imp_damp'])
+            J_u_total += self.mpc_params['delta_K_cost']*ca.sumsqr(self.__vars.get_deviation('imp_stiff'))
+            J_u_total += self.mpc_params['K_cost']*ca.sumsqr(self.__vars['imp_stiff'])
 
-        if self.mpc_params['risk_sens'] == 0: # Expected cost
-            J_total = J_u_total
-            for mode in self.__modes:
-                J_total += params_sym['belief_'+mode]*J[mode] # expected value
-        else: # Risk-sensitive formulation. See, e.g. Medina2012
-            for mode in self.__modes:
-                J_total += belief[mode]*ca.exp(-0.5*self.mpc_params['risk_sens']*(J[mode]))
-            J_total = -2/self.mpc_params['risk_sens']*ca.log(J_total)+J_u_total
-
-        if self.mpc_params['dist_rej']:
-            admittance_TF1 = Sys([1],
-                                [self.__vars['imp_mass'][1],
-                                 self.__vars['imp_damp'][1]],
-                                symb_type = ty)
-            admittance_TF2 = Sys([1],
-                                [self.__vars['imp_mass'][2],
-                                 self.__vars['imp_damp'][2]],
-                                symb_type = ty)
-            force_signal = Sys([1, 0],[1, self.mpc_params['dist_omega']])
-            self.dist_signal1 = admittance_TF1*force_signal
-            self.dist_signal2 = admittance_TF2*force_signal
-            J_total += self.mpc_params['dist_rej']*self.dist_signal1.h2(sol = 'scipy') #'lapackqr')
-            J_total += self.mpc_params['dist_rej']*self.dist_signal2.h2(sol = 'scipy') #'lapackqr') #solver: scipy, ma27, lapackqr, ldl. Probably just need scipy if poorly conditioned, otherwise the other solvers are casadi native  and faster.
+        J_total = J_u_total
+        for mode in self.__modes:
+            J_total += params_sym['belief_'+mode]*J[mode] # expected value
 
         # Set up dictionary of arguments to solve
         w, lbw, ubw = self.__vars.get_dec_vectors()
-        self.__vars.set_x0('imp_mass', params['imp_mass'])
-        self.__vars.set_x0('imp_damp', params['imp_damp'])
+        self.__vars.set_x0('imp_stiff', params['imp_stiff'])
+        self.__vars.set_x0('des_pose', params['init_pose'][:3])
         w0 = self.__vars.get_x0()
-        
-        self.cost_debug = ca.Function('cost_debug', [w, params_sym.get_vector()], [Fk_next['cost_debug']])
+    
         self.args = dict(x0=w0, lbx=lbw, ubx=ubw, lbg=lbg, ubg=ubg)
         
         prob = {'f': J_total, 'x': w, 'g': ca.vertcat(*g), 'p': params_sym.get_vector()}
@@ -203,10 +151,9 @@ class MPC:
         ub['shoulder_pos'] = np.array(self.mpc_params['human_kin']['center'])+self.mpc_params['max_shoulder']*np.array([1,1,0])
         lb['hum_jts'] = np.array(self.mpc_params['hum_jt_lim']['low'])*np.pi
         ub['hum_jts'] = np.array(self.mpc_params['hum_jt_lim']['high'])*np.pi
-        lb['imp_mass'] = self.mpc_params['M_min']
-        lb['imp_damp'] = self.mpc_params['B_min']
-        ub['imp_mass'] = self.mpc_params['M_max']
-        ub['imp_damp'] = self.mpc_params['B_max']
+        lb['imp_stiff'] = self.mpc_params['K_min']
+        ub['imp_stiff'] = self.mpc_params['K_max']
+            
         if self.__N_p == 3:
             lb['u'] = -self.mpc_params['u_lin_max']
             ub['u'] = self.mpc_params['u_lin_max']

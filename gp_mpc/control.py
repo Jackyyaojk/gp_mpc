@@ -51,7 +51,7 @@ class mpc_impedance_control():
         self.recieved_robot_state = False
         self.impedance_params = {'M': np.array([10, 10, 10, 1, 1, 1], dtype=float),
                                  'B': np.array([500, 500, 500, 30, 30, 30], dtype=float),
-                                 'K': np.zeros(self.state_dim),
+                                 'K': np.array([200, 200, 200, 2, 2, 2], dtype=float),
                                  'Fd': np.zeros(self.state_dim)}
 
         # Init dynamics for each mode
@@ -142,8 +142,8 @@ class mpc_impedance_control():
         # MPC calc
         # Build parameters dictionary for the MPC problem
         params = {'init_pose':self.state,
-                  'imp_mass':self.impedance_params['M'][:self.state_dim],
-                  'imp_damp':self.impedance_params['B'][:self.state_dim]}
+                  'imp_stiff':self.impedance_params['K'][:self.state_dim]}
+        
         params.update({'belief_'+mode:self.mode_detector.bel[mode] for mode in self.modes})
 
         start = time.time()
