@@ -52,6 +52,7 @@ class GPDynamics:
 
         # For each DOF, apply the dynamics update
         f_cov_array = []
+        
         for i in range(N_p):          
             bn = imp_mass[i]/(imp_mass[i]+dt*imp_damp[i])
             
@@ -74,7 +75,6 @@ class GPDynamics:
         if par['state_cov']: st_cost += par['S']*ca.sum1(x_next[2*N_p])
         #st_cost += self.__H*ca.sumsqr(f_mu+u[:N_p]) if self.mpc_params['match_human_force'] else self.__H*ca.sumsqr(f_mu) 
         if self.mpc_params['state_cov']: st_cost += par['S']*ca.sum1(x_next[2*N_p:])
-
 
         dynamics = ca.Function('F_int', [x, des_pose, init_pose, imp_mass, imp_damp, imp_stiff],\
                                [x_next, st_cost, x_w], \

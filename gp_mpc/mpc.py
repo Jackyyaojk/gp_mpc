@@ -60,10 +60,7 @@ class MPC:
 
         #print(sol['x'])
         self.__vars.set_results(sol['x'])
-        self.x_traj = {m:self.__vars['x_'+m] for m in self.__modes}
-        #print(self.x_traj)
-        self.des_pose = self.__vars['des_pose']
-        self.imp_stiff = np.squeeze(self.__vars['imp_stiff'])
+            
         return self.__vars.filter()
         
     # Formulate the NLP for multiple-shooting
@@ -102,6 +99,8 @@ class MPC:
             ubg += [self.mpc_params['delta_xd_max']]*self.__N_p
 
         for mode in self.__modes:
+
+            print(imp_mass)
                   
             Fk_next = self.__F_int[mode](x = ca.horzcat(np.zeros((N_x, 1)), self.__vars['x_'+mode]),
                                          des_pose = self.__vars['des_pose'],

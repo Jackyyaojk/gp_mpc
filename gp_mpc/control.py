@@ -106,15 +106,15 @@ class mpc_impedance_control():
 
     # Callback function when impedance parameters message recieved
     def update_params(self, msg):
-        #if self.mpc_params['sim']:
-            #self.rob_state['imp_stiff'] = self.mpc_state['imp_stiff']
-        #    pass
-        #else:
-        try:
-            self.rob_state['imp_stiff']  = np.ones(3)#np.array(msg.position)[:self.state_dim]
-            self.rob_state['des_pose']  = self.rob_state['pose'][:3]#np.array(msg.velocity)[:self.state_dim]
-        except:
-            print("Error loading ROS message in update_params")
+        if self.mpc_params['sim'] and self.mpc_state:
+            self.rob_state['imp_stiff'] = self.mpc_state['imp_stiff']
+            self.rob_state['des_pose'] = self.mpc_state['des_pose']
+        else:
+            try:
+                self.rob_state['imp_stiff']  = np.ones(3)#np.array(msg.position)[:self.state_dim]
+                self.rob_state['des_pose']  = self.rob_state['pose'][:3]#np.array(msg.velocity)[:self.state_dim]
+            except:
+                print("Error loading ROS message in update_params")
 
     def print_results(self):
         prstr = ''  # Print string
@@ -125,6 +125,7 @@ class mpc_impedance_control():
             for mode in self.modes:
                 prstr += mode + ':{: 6.3f} | '.format(self.mode_detector.bel[mode])
         for k,v in self.mpc_state.items():
+            if k.startswith('x_'): continue # dont want to print trajectory
             prstr += f' {k} {v} | '
         prstr += 'mpc {: 6.3f} | '.format(self.timelist[-1])
         self.control_time = time.time()
@@ -140,7 +141,6 @@ class mpc_impedance_control():
         params = self.rob_state
         params.update(self.mode_detector.get_state())
 
-        print(params)
         start = time.time()
         self.mpc_state = self.mpc.solve(params)
         self.timelist.append(time.time() - start)
