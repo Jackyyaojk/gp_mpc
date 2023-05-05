@@ -37,7 +37,10 @@ class mode_detector():
         self.log_bel = {mode:self.log_bel[mode]-np.log(normalization_constant) for mode in self.modes}
         self.bel = {mode:np.exp(self.log_bel[mode]) for mode in self.modes}
         return [np.exp(self.log_bel[mode].__float__()) for mode in self.modes]
- 
+
+    def get_state(self):
+        return {'belief_'+mode:self.bel[mode] for mode in self.modes}
+    
     def predict_llik(self, x, y, mode):
         """ Give log likelihod of a model having that observation
         """

@@ -17,7 +17,7 @@ def get_empty_jointstate():
 
 # Define the mapping from ROS msg to the state
 def msg_to_state(msg):
-    return eulerpose_to_rotpose(msg.position[:6])
+    return {'pose':eulerpose_to_rotpose(msg.position[:6])}
 
 # Define the mapping from ROS msg to observation
 def msg_to_obs(msg):

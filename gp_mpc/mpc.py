@@ -12,6 +12,13 @@ from .decision_vars import decision_var_set, param_set, decision_var
 from autodiff_dynamic_systems.autodiff_sys import Sys
 
 class MPC:
+    '''
+    This class builds a multiple shooting MPC problem into a solver
+    IN:
+      N_p: number of shooting points
+      mpc_params: the dict for the MPC parameters
+      gp_dynamics_dict: the dict of different dynamics objects 
+    '''
     def __init__(self, N_p, mpc_params, gp_dynamics_dict, path):
         self.mpc_params = mpc_params
 
@@ -21,7 +28,7 @@ class MPC:
         self.__N_x = (2+2*mpc_params['state_cov'])*N_p    # number of states of ode
         self.__N_p = N_p
         self.__constraint_slack = mpc_params['constraint_slack']
-        self.__precomp = mpc_params['precomp']
+
 
         self.__gp_dynamics = gp_dynamics_dict
         self.__modes = gp_dynamics_dict.keys()            # names of modes
@@ -57,6 +64,7 @@ class MPC:
         #print(self.x_traj)
         self.des_pose = self.__vars['des_pose']
         self.imp_stiff = np.squeeze(self.__vars['imp_stiff'])
+        return self.__vars.filter()
         
     # Formulate the NLP for multiple-shooting
     def build_solver(self, params): 
@@ -71,14 +79,14 @@ class MPC:
         lbg = []  # lower bound on constraints
         ubg = []  # upper-bound on constraints
         vars = {} # decision variables
-        print(params)
+
         # Symbolic varaibles for parameters, these get assigned to numerical values in solve()
         params_sym = param_set(params, symb_type = ty.sym)
 
         # Build decision variables
         imp_mass = self.mpc_params['imp_mass']*np.ones(3)
         vars['imp_stiff'] = params_sym['imp_stiff']
-        vars['des_pose'] = params_sym['init_pose'][:3]
+        vars['des_pose'] = params_sym['pose'][:3]
         for m in self.__modes: vars['x_'+m] = np.zeros((N_x, self.__N-1))
         ub, lb = self.build_dec_var_constraints()
         
@@ -97,7 +105,7 @@ class MPC:
                   
             Fk_next = self.__F_int[mode](x = ca.horzcat(np.zeros((N_x, 1)), self.__vars['x_'+mode]),
                                          des_pose = self.__vars['des_pose'],
-                                         init_pose = params_sym['init_pose'],
+                                         init_pose = params_sym['pose'],
                                          imp_mass = imp_mass,
                                          imp_damp = 2*ca.sqrt(vars['imp_stiff']),
                                          imp_stiff = self.__vars['imp_stiff'])
@@ -123,43 +131,22 @@ class MPC:
         # Set up dictionary of arguments to solve
         w, lbw, ubw = self.__vars.get_dec_vectors()
         self.__vars.set_x0('imp_stiff', params['imp_stiff'])
-        self.__vars.set_x0('des_pose', params['init_pose'][:3])
+        self.__vars.set_x0('des_pose', params['pose'][:3])
         w0 = self.__vars.get_x0()
     
         self.args = dict(x0=w0, lbx=lbw, ubx=ubw, lbg=lbg, ubg=ubg)
         
         prob = {'f': J_total, 'x': w, 'g': ca.vertcat(*g), 'p': params_sym.get_vector()}
-        if not self.__precomp:
-            self.solver = ca.nlpsol('solver', 'ipopt', prob, self.options)
-            #self.solver = ca.nlpsol('solver', 'blocksqp', prob, {})
-        else:
-            import subprocess
-            import time
-            gen_opts = {}
-            solver = ca.nlpsol('solver', 'ipopt', prob, self.options)
-            solver.generate_dependencies("nlp.c", gen_opts)
-            start = time.time()
-            subprocess.Popen("gcc -fPIC -shared -O1 nlp.c -o nlp.so", shell=True).wait()
-            print("Compile time was: {}".format(time.time()-start))
-            self.solver = ca.nlpsol("solver", "ipopt", "./nlp.so", self.options)
+        
+        self.solver = ca.nlpsol('solver', 'ipopt', prob, self.options)
 
     def build_dec_var_constraints(self):
         ub = {}
         lb = {}
 
-        lb['shoulder_pos'] = np.array(self.mpc_params['human_kin']['center'])-self.mpc_params['max_shoulder']*np.array([1,1,0])
-        ub['shoulder_pos'] = np.array(self.mpc_params['human_kin']['center'])+self.mpc_params['max_shoulder']*np.array([1,1,0])
-        lb['hum_jts'] = np.array(self.mpc_params['hum_jt_lim']['low'])*np.pi
-        ub['hum_jts'] = np.array(self.mpc_params['hum_jt_lim']['high'])*np.pi
         lb['imp_stiff'] = self.mpc_params['K_min']
         ub['imp_stiff'] = self.mpc_params['K_max']
             
-        if self.__N_p == 3:
-            lb['u'] = -self.mpc_params['u_lin_max']
-            ub['u'] = self.mpc_params['u_lin_max']
-        else:
-            lb['u'] = np.repeat(np.expand_dims(np.concatenate([[-self.mpc_params['u_lin_max']]*3, [-self.mpc_params['u_rot_max']]*3]),axis=1), self.__N, axis=1)
-            ub['u'] = np.repeat(np.expand_dims(np.concatenate([[self.mpc_params['u_lin_max']]*3,  [self.mpc_params['u_rot_max']]*3]),axis=1), self.__N, axis=1)
         return ub, lb
 
 

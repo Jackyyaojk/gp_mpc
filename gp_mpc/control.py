@@ -27,8 +27,11 @@ class mpc_impedance_control():
       path: directory with data and config files. If no config files at path, defaults loaded from config/
       rebuild_gp: optionally force the GP to be re-built, otherwise it will try to load a .pkl file
     '''
-    def __init__(self, path='', rebuild_gp=True):
-    
+    def __init__(self, args):
+        # process args
+        path = args.path
+        rebuild_gp = args.rebuild_gp
+        
         # Loading config files
         self.mpc_params = yaml_load(path, 'mpc_params.yaml')
         self.mode_detector_params = yaml_load(path, 'mode_detector_params.yaml')
@@ -36,7 +39,6 @@ class mpc_impedance_control():
         self.rotation = self.mpc_params['enable_rotation']
         self.state_dim = 3 if not self.rotation else 6  # range of state
 
-        np.random.seed(0)
         np.set_printoptions(formatter={'float': '{: 6.4f}'.format})
 
         # Set up or load gp models, GPs will be built if (1) there's no .pkl with the models, or (2) rebuild_gp is true
@@ -47,13 +49,10 @@ class mpc_impedance_control():
         self.mode_detector = mode_detector(self.modes, self.models,
                                            params = self.mode_detector_params)
 
-        # Set up local state
-        self.recieved_robot_state = False
-        self.impedance_params = {'M': np.array([10, 10, 10, 1, 1, 1], dtype=float),
-                                 'B': np.array([500, 500, 500, 30, 30, 30], dtype=float),
-                                 'K': np.array([200, 200, 200, 2, 2, 2], dtype=float),
-                                 'Fd': np.zeros(self.state_dim)}
-
+        # Set up robot and mpc state
+        self.rob_state = {k:None for k in ('imp_stiff', 'des_pose', 'pose')}
+        self.mpc_state = {}
+        
         # Init dynamics for each mode
         self.gp_dynamics_dict = { mode: GPDynamics(N_p = self.state_dim,
                                                    mpc_params = self.mpc_params,
@@ -78,12 +77,12 @@ class mpc_impedance_control():
         
         # If this is in simulation; i.e. a bag file is being used, add pub which integrates the delta_impedance_gains
         if self.mpc_params['sim']:
-            print("mpc_param sim is set; integrating delta imp params in ctrl")
+            print("mpc_param sim is set; integrating imp params in ctrl")
             self.pub_imp = rospy.Publisher('impedance_gains_sim',
                                            JointState, queue_size = 1)
 
         # Init animation
-        if self.mpc_params['live_plot'] or self.mpc_params['save_plot']:  self.animate_init()
+        if self.mpc_params['live_plot']:  self.animate_init()
 
         # Performance profiling
         self.control_time = time.time()
@@ -93,26 +92,27 @@ class mpc_impedance_control():
     def update_state(self, msg):
         self.recieved_robot_state = True
         try:
-            self.state = msg_to_state(msg)
-            self.obs   = msg_to_obs(msg)
+            self.rob_state.update(msg_to_state(msg))
+            obs = msg_to_obs(msg)
         except:
             print("Error loading ROS message in update_state")
 
         # If multiple modes and there is external force, update the mode belief
-        if len(self.modes) > 1 and np.linalg.norm(self.obs[:3]) > self.mode_detector_params['min_force']:
-            bel_arr = self.mode_detector.update_belief(self.obs[:self.state_dim], self.state[:self.state_dim])
+        if len(self.modes) > 1 and np.linalg.norm(obs[:3]) > self.mode_detector_params['min_force']:
+            bel_arr = self.mode_detector.update_belief(obs[:self.state_dim], self.rob_state['pose'][:self.state_dim])
             if self.pub_belief:
                 msg_belief = Float64MultiArray(data = bel_arr)
                 self.pub_belief.publish(msg_belief)
 
     # Callback function when impedance parameters message recieved
     def update_params(self, msg):
-        if self.mpc_params['sim']: return # If simulating, internal impedance_params are correct
+        #if self.mpc_params['sim']:
+            #self.rob_state['imp_stiff'] = self.mpc_state['imp_stiff']
+        #    pass
+        #else:
         try:
-            self.impedance_params['K']  = np.array(msg.position)[:self.state_dim]
-            self.impedance_params['B']  = np.array(msg.velocity)[:self.state_dim]
-            self.impedance_params['M']  = np.array(msg.effort)[:self.state_dim]
-            self.impedance_params['Fd'] = np.array(msg.effort)[6:6+self.state_dim]
+            self.rob_state['imp_stiff']  = np.ones(3)#np.array(msg.position)[:self.state_dim]
+            self.rob_state['des_pose']  = self.rob_state['pose'][:3]#np.array(msg.velocity)[:self.state_dim]
         except:
             print("Error loading ROS message in update_params")
 
@@ -123,64 +123,46 @@ class mpc_impedance_control():
         if self.mode_detector_params['print_belief']:
             prstr += 'Bel '
             for mode in self.modes:
-                prstr += mode + ':' + '{: 6.3f}'.format(self.mode_detector.bel[mode])+' | '
-        
-        prstr += ' Fd  {} | '.format(self.mpc.des_force)
+                prstr += mode + ':{: 6.3f} | '.format(self.mode_detector.bel[mode])
+        for k,v in self.mpc_state.items():
+            prstr += f' {k} {v} | '
         prstr += 'mpc {: 6.3f} | '.format(self.timelist[-1])
-        prstr += 'total {: 6.3f} | '.format(time.time()-self.control_time)
         self.control_time = time.time()
-        if self.mpc_params['opti_MBK']:
-                prstr += '\n cur M {} | cur B {} | '.format(self.impedance_params['M'][:self.state_dim],
-                                                        self.impedance_params['B'][:self.state_dim] )
         print(prstr)
 
     # Main control loop, update belief, do MPC calc, send out the updated params
     def control(self):
-        if not self.recieved_robot_state: return
+        if any(el is None for el in self.rob_state.values()): return
         if rospy.is_shutdown(): return
 
         # MPC calc
         # Build parameters dictionary for the MPC problem
-        params = {'init_pose':self.state,
-                  'imp_stiff':self.impedance_params['K'][:self.state_dim]}
-        
-        params.update({'belief_'+mode:self.mode_detector.bel[mode] for mode in self.modes})
+        params = self.rob_state
+        params.update(self.mode_detector.get_state())
 
+        print(params)
         start = time.time()
-        self.mpc.solve(params)
+        self.mpc_state = self.mpc.solve(params)
         self.timelist.append(time.time() - start)
 
-        if self.mpc_params['print_control']: self.print_results()
+        if self.mpc_params['print_control']: self.print_results()           
 
-        if self.mpc_params['sim'] and self.mpc_params['opti_MBK']:
-            self.impedance_params['M'][:self.state_dim] = self.mpc.imp_mass
-            self.impedance_params['B'][:self.state_dim] = self.mpc.imp_damp
-
-        self.build_and_publish(des_force = self.mpc.des_force,
-                               des_damp = self.mpc.imp_damp,
-                               des_mass = self.mpc.imp_mass)
+        self.build_and_publish()
 
     # Build and publish the ROS messages
-    def build_and_publish(self, des_force = None, des_damp = None,
-                          des_mass = None, send_zeros = False):
+    def build_and_publish(self, send_zeros = False):
         msg_control = get_empty_jointstate()
         if send_zeros:
             print("Sending zero on all delta impedance gains and desired force")
         else:
-            des_force = 0.7*(des_force-self.impedance_params['Fd'][:self.state_dim]) #to handle oscilation due to delay
-            msg_control.effort[6:6+self.state_dim] = des_force
-            if des_damp is not None and self.mpc_params['opti_MBK']:
-                msg_control.velocity = 0.7*(des_damp - self.impedance_params['B'][:self.state_dim])
-            if des_mass is not None and self.mpc_params['opti_MBK']:
-                msg_control.effort[:self.state_dim] = 0.7*(des_mass - self.impedance_params['M'][:self.state_dim])
+            # previously had some filtering on the desired signals
+            pass
+    
         if not rospy.is_shutdown():
             self.pub_control.publish(msg_control)
             if self.mpc_params['sim']:
                 msg_imp = get_empty_jointstate()
-                msg_imp.position = np.array(self.impedance_params['K'])
-                msg_imp.velocity = np.array(self.impedance_params['B'])
-                msg_imp.effort[:self.state_dim] = np.array(self.impedance_params['M'][:self.state_dim])
-                msg_imp.effort[6:6+self.state_dim] = np.array(self.impedance_params['Fd'][:self.state_dim])
+                msg_imp.position = np.array(self.mpc_state.get('imp_stiff'))
                 self.pub_imp.publish(msg_imp)
 
     def animate_update(self):
@@ -218,9 +200,7 @@ class mpc_impedance_control():
             self.human_shoulder.set_data_3d(human_center)
             self.ax.draw_artist(self.human_shoulder)
         self.fig.canvas.flush_events()
-        if self.mpc_params['save_plot']:
-            plt.savefig('animation_frames/'+str(self.fig_number).zfill(3))
-            self.fig_number += 1
+
 
     def animate_init(self):
         # 3D figure / attaching 3D / formatting
@@ -302,9 +282,9 @@ class mpc_impedance_control():
             t_max = max(t_stats[1:])
             print("Cold Start: {}, Mean: {}, Min: {}, Max: {}".format(t_cold, t_mean, t_min, t_max))
 
-def start_node(path = '', rebuild_gp = False):
+def start_node(args):
     rospy.init_node('mpc_impedance_control')
-    node = mpc_impedance_control(path = path, rebuild_gp = rebuild_gp)
+    node = mpc_impedance_control(args)
 
     # Set shutdown to be executed when ROS exits
     rospy.on_shutdown(node.shutdown)
@@ -312,9 +292,7 @@ def start_node(path = '', rebuild_gp = False):
 
     while not rospy.is_shutdown():
         node.control()
-        if node.recieved_robot_state and \
-        (node.mpc_params['live_plot'] or node.mpc_params['save_plot']):
-            node.animate_update()
+        if node.mpc_params['live_plot']: node.animate_update()
         rospy.sleep(1e-8) # Sleep so ROS subscribers can update
 
 if __name__ == '__main__':
@@ -323,4 +301,4 @@ if __name__ == '__main__':
     parser.add_argument("--rebuild_gp", default=False, action='store_true',
                         help="Force a new Gaussian Process to build")
     args = parser.parse_args()
-    start_node(args.path, args.rebuild_gp)
+    start_node(args)

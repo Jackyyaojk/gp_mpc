@@ -15,16 +15,6 @@ class GPDynamics:
     def __init__(self, N_p, mpc_params, gp):
         self.__N_p = N_p   # Num positions  (3 or 6 depending on with or without rotation)
         self.__dt = mpc_params['dt']
-        self.__Q_pos = mpc_params['Q_pos']    # stagecost on positions
-        self.__Q_vel = mpc_params['Q_vel']    # stagecost on velocities
-        self.__R = mpc_params['R']            # stagecost on input, linear
-        self.__Rr = mpc_params['Rr']          # stagecost on input, rotational
-        self.__S = mpc_params['S']            # stagecost on covariance
-        self.__H = mpc_params['H']            # stagecost on human forces
-        self.__H_jt = mpc_params['H_jt']      # stagecost on human joint torques
-        if 'H_pow' in mpc_params.keys(): self.__H_pow = mpc_params['H_pow']
-        self.__I = mpc_params['I']
-        self.human_kin = mpc_params['human_kin']
 
         self.mpc_params = mpc_params
         self.__gp = gp
@@ -53,18 +43,16 @@ class GPDynamics:
         # Shortening for ergonomics
         N_p = self.__N_p    # Num of positions in system
         dt = self.__dt      # Time step for discretization
+        par = self.mpc_params
 
         x, x_next, x_pos_cov, imp_mass, imp_damp, imp_stiff, des_pose, init_pose = self.build_dec_vars()
 
         x_w = compliance_to_world(init_pose, x[:self.__N_p])
         f_mu, f_cov = self.__gp.predict(x=x_w[:self.__N_p], cov=[], fast = self.mpc_params['simplify_cov'])
 
-
         # For each DOF, apply the dynamics update
         f_cov_array = []
-        for i in range(N_p):
-            #kn = dt*K_k/M_k
-            
+        for i in range(N_p):          
             bn = imp_mass[i]/(imp_mass[i]+dt*imp_damp[i])
             
             # Velocity first b/c that's needed for semi-implicit
@@ -80,165 +68,20 @@ class GPDynamics:
                 if i < 3: f_cov_array.append(f_cov_tmp)
 
     
-        # Define stagecost L, note control costs happen in main MPC problem as control shared btwn modes
-        L = self.__Q_vel*ca.sumsqr(x_next[N_p:2*N_p])
-        if N_p == 6: L += self.__Rr*ca.sumsqr(u[3:6])
-        if self.mpc_params['state_cov']: L += self.__S*ca.sum1(x_next[2*N_p:])
+        # Define stage cost, note control costs happen in main MPC problem as control shared btwn modes
+        st_cost = par['Q_vel']*ca.sumsqr(x_next[N_p:2*N_p])
+        st_cost += par['I']*ca.sum1(f_cov)
+        if par['state_cov']: st_cost += par['S']*ca.sum1(x_next[2*N_p])
+        #st_cost += self.__H*ca.sumsqr(f_mu+u[:N_p]) if self.mpc_params['match_human_force'] else self.__H*ca.sumsqr(f_mu) 
+        if self.mpc_params['state_cov']: st_cost += par['S']*ca.sum1(x_next[2*N_p:])
+
+
         dynamics = ca.Function('F_int', [x, des_pose, init_pose, imp_mass, imp_damp, imp_stiff],\
-                               [x_next, L, x_w], \
+                               [x_next, st_cost, x_w], \
                                ['x', 'des_pose', 'init_pose',  'imp_mass', 'imp_damp', 'imp_stiff'], \
                                ['xf', 'st_cost', 'debug'] )
-             # {"jit":True, "jit_options":{'flags':'-O3'}}) # Can JIT the dynamics, less helpful for typical problem
         return dynamics
 
     def gp_grad(self, x):
         return self.__gp.grad(x)
 
-    def split_cost_function(self, x_traj, u_traj = None):
-    #returns a string of the contribution of various parts of the cost function
-        types = ['pos', 'vel', 'x_cov', 'f', 'f_cov']
-        if u_traj is not None: types += 'u'
-        cost_total = {typ:0.0 for typ in types}
-        Np = self.__N_p
-        for x in x_traj.T:
-            cost_total['pos'] += self.__Q_pos*x[:Np].T @ x[:Np]
-            cost_total['vel'] += self.__Q_vel*x[Np:2*Np].T @ x[Np:2*Np]
-            cost_total['x_cov'] += self.__S*x[2*Np:].T @ x[2*Np:]
-            f_mu, f_cov = self.__gp.predict_fast(x=x[:Np])
-            cost_total['f'] += self.__H*f_mu.T@f_mu
-            cost_total['f_cov'] += self.__I*np.trace(f_cov)
-        for u in u_traj:
-            cost_total['u'] += self.__R*np.sum(u**2)
-        return cost_total
-
-    def human_IK(self, x_ee, shoulder_pos):
-        # IK solution for the human joint angles, assuming the interior/exterior
-        # rotation of human is 0
-        if not self.human_kin: return [0,0,0,0]
-        l1 = self.human_kin['lengths'][0]
-        l2 = self.human_kin['lengths'][1]
-        rel_pos = [x_ee[0]-shoulder_pos[0], x_ee[1]-shoulder_pos[1], x_ee[2]-shoulder_pos[2]]
-
-        dist_2 = ca.fmin(ca.sumsqr(ca.vertcat(*rel_pos)), l1**2+l2**2-1e-4)
-        q4 = np.pi-ca.acos((l1**2 + l2**2 - dist_2)/(2*l1*l2))
-        q1 = ca.atan2(rel_pos[1], rel_pos[0])
-        q2 = ca.asin(rel_pos[2]/ca.sqrt(dist_2))-q4/2
-        q3 = 0.0
-        return [q1, q2, q3, q4]
-
-    def human_jac(self):
-        jts = ca.SX.sym('q',4)
-        wrist_pos, _  = self.human_FK(jts, self.human_kin['center'])
-        human_jac = ca.jacobian(ca.vertcat(*wrist_pos), jts)
-        human_jac_fn = ca.Function('human_jac', [jts], [human_jac])
-        return human_jac_fn
-
-    def human_joint_torques_cart(self, x_ee, shoulder_pos, F_comp):
-        # Forces are in compliance frame, x_ee in world coords
-        F_world = force_comp_to_world(x_ee, F_comp)
-        if not hasattr(self, 'human_jac_fn'):
-            self.human_jac_fn = self.human_jac()
-        jts = self.human_IK(x_ee, shoulder_pos = shoulder_pos)
-        jac = self.human_jac_fn(ca.horzcat(*jts))
-
-        return jac.T@F_world, jac
-
-    def human_joint_torques_joint(self, x_ee, jts, F_comp):
-        # Where human_kin is shoulder position and joint coords.
-        F_world = force_comp_to_world(x_ee, F_comp)
-        if not hasattr(self, 'human_jac_fn'):
-            self.human_jac_fn = self.human_jac()
-        jac = self.human_jac_fn(jts)
-        return jac.T@F_world
-
-    def human_FK(self, jts, shoulder_pos):
-        if not self.human_kin: return [0,0,0,0]
-        #jts has 4 elements:
-         # angle about world x axis
-         # angle about world y axis
-         # internal/external rotation (about upper arm joint)
-         # elbow pos
-        # zero pose:
-         # l1 along x0 and l2 along x4 if -q4 is applied about y3 in  http://web.mit.edu/2.05/www/Handout/HO2.PDF
-        q1=jts[0]
-        q2=-jts[1]
-        q3=jts[2]
-        q4=jts[3]
-        l1 = self.human_kin['lengths'][0]
-        l2 = self.human_kin['lengths'][1]
-    
-        wrist_pos = deepcopy(shoulder_pos)
-        wrist_pos[0] += l1*ca.cos(q1)*ca.cos(q2)
-        wrist_pos[1] += l1*ca.sin(q1)*ca.cos(q2)
-        wrist_pos[2] += -l1*ca.sin(q2)
-
-        elbow_pos = deepcopy(wrist_pos)
-
-        wrist_pos[0] += l2*(ca.cos(-q4)*ca.cos(q1)*ca.cos(q2)-ca.sin(-q4)*(ca.cos(q1)*ca.sin(q2)*ca.cos(q3)+ca.sin(q1)*ca.sin(q3)))
-        wrist_pos[1] += l2*(ca.cos(-q4)*ca.sin(q1)*ca.cos(q2)-ca.sin(-q4)*(ca.sin(q1)*ca.sin(q2)*ca.cos(q3)-ca.cos(q1)*ca.sin(q3)))
-        wrist_pos[2] += l2*(-ca.cos(-q4)*ca.sin(q2)          -ca.sin(-q4)*ca.cos(q2)*ca.cos(q3))
-        return wrist_pos, elbow_pos
-
-
-    def opt_exp_joint_effort(self, x_ee, lam = 50.0):
-        from scipy.linalg import solve_sylvester, pinv
-        mu, cov = self.__gp.predict(x=x_ee[:self.__N_p], cov=[])
-        q = self.human_IK(x_ee[:3], self.mpc_params['human_kin']['center'])
-        #print(q)
-        jac_fn = self.human_jac()
-        jac = jac_fn(ca.horzcat(*q))
-        #print(jac)
-        jac_inv = pinv(jac)
-        #mu = 0.001*ca.DM([10.0, 50.0, 1.0])
-        A = (lam*np.eye(3)+mu[:3]@mu[:3].T)@jac_inv.T@jac_inv
-        B = cov[:3, :3]
-        A = A.full()
-        B = B.full()
-        Q = lam*np.eye(3)
-        #print(A)
-        #print(B)
-        Imp = solve_sylvester(A, B, Q)
-        #print(Imp)
-        return Imp
-
-
-    def plot_exp_joint_effort(self):
-        import matplotlib.pyplot as plt
-
-        state_bounds = [np.full(self.__N_p,1e10), np.full(self.__N_p,-1e10)]
-        current_range = self.__gp.get_xrange()
-        state_bounds = [np.minimum(state_bounds[0],current_range[0]),
-                        np.maximum(state_bounds[1],current_range[1])]
-        fig, ax = plt.subplots(dpi=300)
-        #fig.subplots_adjust(left=-0.11, right=1.05, bottom=0.0, top=1.0)
-        exp = 0.2
-        x, y = np.meshgrid(np.linspace(state_bounds[0][0]-exp, state_bounds[1][0]+exp, 9),
-                           np.linspace(state_bounds[0][1]-exp, state_bounds[1][1]+exp, 9))
-        x = x.flatten()
-        y = y.flatten()
-        avg = self.__gp.get_mean_state()
-        meansx = []
-        meansy = []
-        covs = []
-        opt_impx = []
-        opt_impy = []
-        
-        for xi, yi in zip(x,y):
-            query_pt = np.concatenate((np.array([xi,yi]), avg[2:]))
-            mu, cov = self.__gp.predict(query_pt, cov=[])
-            meansx.append(mu[0])
-            meansy.append(mu[1])
-            opt_imp = self.opt_exp_joint_effort(query_pt)
-            opt_impx.append(opt_imp[0,0])
-            opt_impy.append(opt_imp[1,1])
-            covs.append(0.5*np.linalg.norm(np.diag(cov)))
-        #ax.plot(x,y, 'k', marker = 'o', ms = covs, labael = 'Force Cov')
-        ax.quiver(x, y, meansx, meansy, color = 'k', alpha = 0.3, label = 'Force Mean')
-        ax.quiver(x, y, opt_impx, 0, color = 'b', label = 'Optimized Imp')
-        ax.quiver(x, y, 0, opt_impy, color = 'b', label = 'Optimized Imp')
-
-        ax.plot(self.mpc_params['human_kin']['center'][0], self.mpc_params['human_kin']['center'][1],
-                'r',  marker = 'o', ms = 10, label = 'human shoulder')
-        fig.tight_layout()
-        ax.legend()
-        plt.show()
