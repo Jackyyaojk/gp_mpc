@@ -14,7 +14,7 @@ import dynamic_reconfigure.client
 from sensor_msgs.msg import JointState
 from geometry_msgs.msg import PoseStamped, WrenchStamped
 from std_msgs.msg import Float64MultiArray
-from visualization_msgs.msg import InteractiveMarkerFeedback
+from visualization_msgs.msg import Marker
 
 
 # Custom classes -- need absolute import b/c of __main__ here.
@@ -78,8 +78,10 @@ class mpc_impedance_control():
         self.listener = tf.TransformListener()
         self.pub_belief  = rospy.Publisher ('belief',
                                             Float64MultiArray, queue_size = 1)
-        self.pub_imp_xd = rospy.Publisher ('equilibrium_pose_marker/feedback',
-                                            InteractiveMarkerFeedback, queue_size = 1)
+        self.pub_imp_xd = rospy.Publisher ('equilibrium_pose_mpc',
+                                            PoseStamped, queue_size = 1)
+        self.pub_imp_xd_marker = rospy.Publisher ('equilibrium_pose_marker',
+                                                  Marker, queue_size = 1)
         self.par_client = dynamic_reconfigure.client.Client("/cartesian_impedance_example_controller/dynamic_reconfigure_compliance_param_node")
 
         # If this is in simulation; i.e. a bag file is being used, add pub which integrates the delta_impedance_gains
@@ -108,6 +110,7 @@ class mpc_impedance_control():
 
     def update_state_async(self):
         (trans,rot) = self.listener.lookupTransform('panda_link0', 'panda_K', rospy.Time(0))
+        self.curr_rot = rot
         rotvec = quat_to_rotvec(np.vstack((rot[3], rot[0], rot[1], rot[2])))
         self.rob_state['pose'] = np.hstack((trans, np.squeeze(rotvec)))
         if self.mpc_params['sim'] and self.mpc_state:
@@ -164,9 +167,16 @@ class mpc_impedance_control():
         if send_zeros:
             print("Sending zero on all delta impedance gains and desired force")
             return
+    
+        msg_imp_xd = get_empty_pose()
+        msg_imp_xd.pose.position.x = self.mpc_state["des_pose"][0]
+        msg_imp_xd.pose.position.y = self.mpc_state["des_pose"][1]
+        msg_imp_xd.pose.position.z = self.mpc_state["des_pose"][2]
+        msg_imp_xd.pose.orientation.w = self.curr_rot[3]
+        msg_imp_xd.pose.orientation.x = self.curr_rot[0]
+        msg_imp_xd.pose.orientation.y = self.curr_rot[1]
+        msg_imp_xd.pose.orientation.z = self.curr_rot[2]
 
-        msg_imp_xd = get_empty_marker()
-        msg_imp_xd.pose.position.x = 0
         if not rospy.is_shutdown():
             self.pub_imp_xd.publish(msg_imp_xd)
             if self.mpc_params['sim']:
