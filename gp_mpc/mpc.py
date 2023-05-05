@@ -9,7 +9,7 @@ import casadi as ca
 from .gp_model import GP
 from .helper_fns import yaml_load, constraints, compliance_to_world
 from .decision_vars import decision_var_set, param_set, decision_var
-from autodiff_dynamic_systems.autodiff_sys import Sys
+
 
 class MPC:
     '''
@@ -34,7 +34,7 @@ class MPC:
         self.__modes = gp_dynamics_dict.keys()            # names of modes
         #self.__F_int = {mode:gp_dynamics_dict[mode].MDS_system().map(self.__N, 'serial') for mode in self.__modes}
         self.__F_int = {mode:gp_dynamics_dict[mode].MDS_system() for mode in self.__modes}
-    
+
         self.options = yaml_load(path, 'ipopt_params.yaml')
         #jit_options = {"flags": ["-Os"], "verbose": True} # JIT options not found to help much
         #options = {"jit": True, "compiler": "shell", "jit_options": jit_options}
@@ -49,7 +49,7 @@ class MPC:
 
         # Update parameters for the solver
         self.args['p'] = ca.vertcat(*[params[el] for el in params.keys()])
-        
+
         # Solve the NLP
         sol = self.solver(**self.args)
 
@@ -60,9 +60,9 @@ class MPC:
 
         #print(sol['x'])
         self.__vars.set_results(sol['x'])
-            
+
         return self.__vars.filter()
-        
+
     # Formulate the NLP for multiple-shooting
     def build_solver(self, params): 
         N_x = self.__N_x
@@ -86,10 +86,10 @@ class MPC:
         vars['des_pose'] = params_sym['pose'][:3]
         for m in self.__modes: vars['x_'+m] = np.zeros((N_x, self.__N-1))
         ub, lb = self.build_dec_var_constraints()
-        
+
         # Turn decision variables into a dec_var object
         self.__vars = decision_var_set(x0 = vars, ub = ub, lb = lb, symb_type = ty.sym)
-        
+
         if self.mpc_params['opti_MBK']:
             g += [self.__vars.get_deviation('imp_stiff')]
             lbg += [-self.mpc_params['delta_K_max']]*self.__N_p
@@ -99,9 +99,6 @@ class MPC:
             ubg += [self.mpc_params['delta_xd_max']]*self.__N_p
 
         for mode in self.__modes:
-
-            print(imp_mass)
-                  
             Fk_next = self.__F_int[mode](x = ca.horzcat(np.zeros((N_x, 1)), self.__vars['x_'+mode]),
                                          des_pose = self.__vars['des_pose'],
                                          init_pose = params_sym['pose'],
@@ -109,7 +106,7 @@ class MPC:
                                          imp_damp = 2*ca.sqrt(vars['imp_stiff']),
                                          imp_stiff = self.__vars['imp_stiff'])
             Xk_next = Fk_next['xf']
-            
+
             J[mode] += ca.sum2(Fk_next['st_cost'])
 
             g += [ca.reshape(Xk_next[:,:-1]-self.__vars['x_'+mode][:,:], N_x*(self.__N-1), 1)]
@@ -132,11 +129,11 @@ class MPC:
         self.__vars.set_x0('imp_stiff', params['imp_stiff'])
         self.__vars.set_x0('des_pose', params['pose'][:3])
         w0 = self.__vars.get_x0()
-    
+
         self.args = dict(x0=w0, lbx=lbw, ubx=ubw, lbg=lbg, ubg=ubg)
-        
+
         prob = {'f': J_total, 'x': w, 'g': ca.vertcat(*g), 'p': params_sym.get_vector()}
-        
+
         self.solver = ca.nlpsol('solver', 'ipopt', prob, self.options)
 
     def build_dec_var_constraints(self):
@@ -145,7 +142,7 @@ class MPC:
 
         lb['imp_stiff'] = self.mpc_params['K_min']
         ub['imp_stiff'] = self.mpc_params['K_max']
-            
+
         return ub, lb
 
 

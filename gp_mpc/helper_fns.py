@@ -3,6 +3,7 @@ import casadi as ca
 import numpy as np
 import rospy
 from sensor_msgs.msg import JointState
+from visualization_msgs.msg import InteractiveMarkerFeedback
 
 ####################################################################################
 #### ROS functions
@@ -13,6 +14,15 @@ def get_empty_jointstate():
     msg.velocity = np.zeros(6)
     msg.effort = np.zeros(12)
     msg.header.stamp = rospy.Time.now()
+    return msg
+
+
+def get_empty_marker():
+    msg = InteractiveMarkerFeedback()
+    msg.header.frame_id = "panda_link0"
+    msg.header.stamp = rospy.Time.now()
+    msg.marker_name = 'equilibrium_pose'
+    msg.event_type = 5
     return msg
 
 # Define the mapping from ROS msg to the state

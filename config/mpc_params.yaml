@@ -36,7 +36,7 @@ dt: 0.095
 constraint_slack: 0.0
 bound_relax_factor: 1e-5
 
-sim: true
+sim: false
 
 #### Outputs and debug ####
 print_control: true
