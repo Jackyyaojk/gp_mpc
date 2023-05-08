@@ -98,7 +98,11 @@ class MPC:
             lbg += [-self.mpc_params['delta_xd_max']]*self.__N_p
             ubg += [self.mpc_params['delta_xd_max']]*self.__N_p
 
+<<<<<<< HEAD
+        for mode in self.__modes:                  
+=======
         for mode in self.__modes:
+>>>>>>> 787045ee5042f683353b351bc2bad74e593c1bc2
             Fk_next = self.__F_int[mode](x = ca.horzcat(np.zeros((N_x, 1)), self.__vars['x_'+mode]),
                                          des_pose = self.__vars['des_pose'],
                                          init_pose = params_sym['pose'],
