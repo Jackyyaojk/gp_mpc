@@ -75,7 +75,8 @@ class mpc_impedance_control():
                                             PoseStamped, self.update_imp_xd, queue_size=1)
         self.sub_force   = rospy.Subscriber('franka_state_controller/F_ext',
                                             WrenchStamped, self.update_force, queue_size=1)
-        self.listener = tf.TransformListener()
+        self.tf_buffer = tf.Buffer()
+        self.listener = tf.TransformListener(self.tf_buffer)
         self.pub_belief  = rospy.Publisher ('belief',
                                             Float64MultiArray, queue_size = 1)
         self.pub_imp_xd = rospy.Publisher ('equilibrium_pose_mpc',
@@ -109,12 +110,13 @@ class mpc_impedance_control():
                 self.pub_belief.publish(msg_belief)
 
     def update_state_async(self):
-        state_msg = self.listener.lookupTransform('panda_link0', 'panda_K', rospy.Time(0))
+        state_msg = self.tf_buffer.lookup_transform('panda_link0', 'panda_link7', rospy.Time(0))
         state = msg_to_state(state_msg)
         self.curr_rot = state[3:]
         self.rob_state['pose'] = state
-        if self.mpc_params['sim'] and self.mpc_state:
-            self.rob_state['imp_stiff'] = self.mpc_state['imp_stiff']
+        if self.mpc_params['sim']:
+            if self.mpc_state:
+                self.rob_state['imp_stiff'] = self.mpc_state['imp_stiff']
         else:
             imp_pars = self.par_client.get_configuration()
             self.rob_state['imp_stiff'] = np.array((imp_pars['translational_stiffness_x'],

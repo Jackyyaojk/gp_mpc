@@ -8,9 +8,9 @@ simplify_cov_axis: 2  # Which axis to use for the reduced cov, default 0
 
 mean_func: zero #hinge #linear #const #linear
 hyper:                # Following Rasmussen2006
-  length_scale: .015   # \ell 
+  length_scale: .06   # \ell 
   noise_var: 12.5     # \sigma_n^2 
-  signal_var: 3.0   # \sigma_f^2
+  signal_var: 4.0   # \sigma_f^2
 
 
 mean_init: [0.0, 0.0, 0.0]
