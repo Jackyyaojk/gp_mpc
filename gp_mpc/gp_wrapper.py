@@ -5,6 +5,7 @@ import rospy
 from sensor_msgs.msg import JointState
 from std_msgs.msg import Float64MultiArray
 import rosbag
+import tf
 
 # Python libs
 import numpy as np
@@ -102,16 +103,26 @@ class gp_model():
             print("Sparsifying model!")
             self.sparsify(mode)
 
+    def get_pose(msg, tf_buffer):
+        tf_buffer.lookup_transform(EE_link_name, msg_first.header.frame_id, msg.header.stamp, rospy.Duration(1))
+
     def load_bags(self, paths):
         trimmed_msgs = []
+        EE_link_name = 'panda_link8'
         for path in paths:
             bag = rosbag.Bag(path)
-            topic_name = '/robot_state'
+            tf_buffer = tf.Buffer()
+            tf_listener = tf.TransformListener(tf_buffer)
+            for topic, msg, t in bag.read_messages(topics=['/tf', '/tf_static']):
+                for msg_tf in msg.transforms:
+                    self._tf_buffer.set_transform(msg_tf,'default_authority')
+
+            topic_name = '/F_ext'
             num_obs = bag.get_message_count(topic_name)
             print('Loading ros bag {}  with {} msgs'.format(path, num_obs))
             if num_obs == 0:
-                print("No messages on /robot_state, checking w/o slash")
-                topic_name = 'robot_state'
+                print("No messages on /F_ext, checking w/o slash")
+                topic_name = 'F_ext'
                 num_obs = bag.get_message_count(topic_name)
                 print('Loading ros bag {}  with {} msgs'.format(path, num_obs))
 
@@ -126,8 +137,8 @@ class gp_model():
                 if t > t_last:
                     msg_last = msg
                     t_last = t
-            pos_first = np.array(msg_first.position)
-            pos_last = np.array(msg_last.position)
+            pos_first = get_pose(msg_first, tf_buffer)
+            pos_last = get_pose(msg_last, tf_buffer)
 
             for _, msg, _ in bag.read_messages(topics=[topic_name]):
                 close_to_first = np.linalg.norm(np.array(msg.position[:6])-pos_first) \

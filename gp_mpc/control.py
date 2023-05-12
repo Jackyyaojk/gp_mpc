@@ -36,7 +36,7 @@ class mpc_impedance_control():
         # process args
         path = args.path
         rebuild_gp = args.rebuild_gp
-        
+
         # Loading config files
         self.mpc_params = yaml_load(path, 'mpc_params.yaml')
         self.mode_detector_params = yaml_load(path, 'mode_detector_params.yaml')
@@ -322,7 +322,7 @@ def start_node(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument("--path", default="data/rail2/", help="Root folder for data & config")
+    parser.add_argument("--path", default="data/pih/", help="Root folder for data & config")
     parser.add_argument("--rebuild_gp", default=False, action='store_true',
                         help="Force a new Gaussian Process to build")
     args = parser.parse_args()
