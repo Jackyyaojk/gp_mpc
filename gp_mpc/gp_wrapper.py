@@ -5,7 +5,7 @@ import rospy
 from sensor_msgs.msg import JointState
 from std_msgs.msg import Float64MultiArray
 import rosbag
-import tf
+import tf2_ros as tf
 
 # Python libs
 import numpy as np
@@ -87,15 +87,15 @@ class gp_model():
         # Load rosbags
         paths = sorted([self.path+fi for fi in self.gp_params['data_path'][mode]])
         print("Loading mode {} with {}".format(mode, paths))
-        trimmed_msgs = self.load_bags(paths)
-
+        states, obss = self.load_bags(paths)
         # Sub-sampling
-        indices = np.linspace(0, len(trimmed_msgs)-1, self.gp_params['num_model_points']).astype(int)
-        subsampled_msgs = [trimmed_msgs[i] for i in indices]
+        indices = np.linspace(0, len(states)-1, self.gp_params['num_model_points']).astype(int)
+        states = [states[i] for i in indices]
+        obss = [obss[i] for i in indices]
 
         # Processing msgs to state/obs
-        self.state[mode] = np.array([msg_to_state(msg) for msg in subsampled_msgs])
-        self.obs[mode]   = np.array([msg_to_obs(msg)   for msg in subsampled_msgs])
+        self.state[mode] = np.array(states)
+        self.obs[mode]   = np.array(obss)
         self.obs[mode]  += self.gp_params['obs_noise']*np.random.randn(*np.array(self.obs[mode]).shape)
 
         # If desired, make sparse GP with synthetic points
@@ -103,52 +103,70 @@ class gp_model():
             print("Sparsifying model!")
             self.sparsify(mode)
 
-    def get_pose(msg, tf_buffer):
-        tf_buffer.lookup_transform(EE_link_name, msg_first.header.frame_id, msg.header.stamp, rospy.Duration(1))
+    def get_pose(self, msg, tf_buffer):
+        trans = tf_buffer.lookup_transform('panda_link0', 'panda_link7', msg.header.stamp, rospy.Duration(1))
+        return msg_to_state(trans)
 
     def load_bags(self, paths):
-        trimmed_msgs = []
-        EE_link_name = 'panda_link8'
+        states = []
+        obss = []
         for path in paths:
             bag = rosbag.Bag(path)
-            tf_buffer = tf.Buffer()
+            tf_buffer = tf.Buffer(cache_time=rospy.Duration(100))
             tf_listener = tf.TransformListener(tf_buffer)
-            for topic, msg, t in bag.read_messages(topics=['/tf', '/tf_static']):
+            t_first_tf = 1e24
+            t_last_tf = 0
+            for topic, msg, t_ros in bag.read_messages(topics=['/tf_static']):
                 for msg_tf in msg.transforms:
-                    self._tf_buffer.set_transform(msg_tf,'default_authority')
+                    tf_buffer.set_transform(msg_tf,'default_authority')
+                    
+            for topic, msg, t_ros in bag.read_messages(topics=['/tf']):
+                t = t_ros.to_sec()
+                if t < t_first_tf: t_first_tf = t
+                if t > t_last_tf: t_last_tf = t
+                for msg_tf in msg.transforms:
+                    tf_buffer.set_transform(msg_tf,'default_authority')
 
-            topic_name = '/F_ext'
+            topic_name = '/franka_state_controller/F_ext'
             num_obs = bag.get_message_count(topic_name)
             print('Loading ros bag {}  with {} msgs'.format(path, num_obs))
             if num_obs == 0:
-                print("No messages on /F_ext, checking w/o slash")
-                topic_name = 'F_ext'
+                print(f"No messages on {topic_name}, checking w/o slash")
+                topic_name = topic_name[1:]
                 num_obs = bag.get_message_count(topic_name)
                 print('Loading ros bag {}  with {} msgs'.format(path, num_obs))
 
+            t_last_tf -= 0.05
+                
             t_first = 1e24
             t_last = 0
             # Finding the first and last messages (rosbags not guarnateed to be in order)
             for _, msg, t_ros in bag.read_messages(topics=[topic_name]):
                 t = t_ros.to_sec()
-                if t < t_first:
+                if t < t_first and t > t_first_tf:
                     msg_first = msg
                     t_first = t
-                if t > t_last:
+                if t > t_last and t < t_last_tf:
                     msg_last = msg
                     t_last = t
-            pos_first = get_pose(msg_first, tf_buffer)
-            pos_last = get_pose(msg_last, tf_buffer)
 
-            for _, msg, _ in bag.read_messages(topics=[topic_name]):
-                close_to_first = np.linalg.norm(np.array(msg.position[:6])-pos_first) \
+            pos_first = self.get_pose(msg_first, tf_buffer)
+            pos_last = self.get_pose(msg_last, tf_buffer)
+
+
+            for _, msg, t_ros in bag.read_messages(topics=[topic_name]):
+                if t_ros.to_sec() < t_first_tf or t_ros.to_sec() > t_last_tf:
+                    continue
+                state = self.get_pose(msg, tf_buffer)
+                obs = msg_to_obs(msg)
+                close_to_first = np.linalg.norm(state-pos_first) \
                     < self.gp_params['trim_thresh_init']
-                no_force = np.linalg.norm(np.array(msg.effort[:3])) < self.gp_params['trim_thresh_force']
-                workspace = np.array(msg.position[2]<self.gp_params['trim_workspace'])
-                if not no_force and not close_to_first and workspace:
-                    trimmed_msgs.append(msg)
-        print('Total of {} messages after trim'.format(len(trimmed_msgs)))
-        return trimmed_msgs
+                no_force = np.linalg.norm(obs) < self.gp_params['trim_thresh_force']
+                if not no_force and not close_to_first:
+                    states.append(state)
+                    obss.append(obs)
+        print('Total of {} messages after trim'.format(len(states)))
+        return states, obss
 
     def build_model(self, mode):
         # Build the GP for obs/state for the given mode

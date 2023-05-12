@@ -9,7 +9,7 @@ import argparse
 
 # ROS imports
 import rospy
-import tf
+import tf2_ros as tf
 import dynamic_reconfigure.client
 from sensor_msgs.msg import JointState
 from geometry_msgs.msg import PoseStamped, WrenchStamped
@@ -82,7 +82,7 @@ class mpc_impedance_control():
                                             PoseStamped, queue_size = 1)
         self.pub_imp_xd_marker = rospy.Publisher ('equilibrium_pose_marker',
                                                   Marker, queue_size = 1)
-        self.par_client = dynamic_reconfigure.client.Client("/cartesian_impedance_example_controller/dynamic_reconfigure_compliance_param_node")
+        if not self.mpc_params['sim']: self.par_client = dynamic_reconfigure.client.Client("/cartesian_impedance_example_controller/dynamic_reconfigure_compliance_param_node")
 
         # If this is in simulation; i.e. a bag file is being used, add pub which integrates the delta_impedance_gains
         if self.mpc_params['sim']:
@@ -109,10 +109,10 @@ class mpc_impedance_control():
                 self.pub_belief.publish(msg_belief)
 
     def update_state_async(self):
-        (trans,rot) = self.listener.lookupTransform('panda_link0', 'panda_K', rospy.Time(0))
-        self.curr_rot = rot
-        rotvec = quat_to_rotvec(np.vstack((rot[3], rot[0], rot[1], rot[2])))
-        self.rob_state['pose'] = np.hstack((trans, np.squeeze(rotvec)))
+        state_msg = self.listener.lookupTransform('panda_link0', 'panda_K', rospy.Time(0))
+        state = msg_to_state(state_msg)
+        self.curr_rot = state[3:]
+        self.rob_state['pose'] = state
         if self.mpc_params['sim'] and self.mpc_state:
             self.rob_state['imp_stiff'] = self.mpc_state['imp_stiff']
         else:

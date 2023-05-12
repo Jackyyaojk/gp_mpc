@@ -27,8 +27,7 @@ num_model_points: 50
 
 num_sparse_points: 0
 trim_thresh_force: 0.0 # Data with force less than this are removed 
-trim_thresh_init: 0.05 # Data within this distance of init are removed
-trim_workspace: 1.0 #0.43   # Data with z value higher than this are removed
+trim_thresh_init: 0.02 # Data within this distance of init are removed
 
 obs_noise: 0.1 # covariance of noise added to the observations
 
@@ -37,4 +36,4 @@ print_hyper: false
 plot: true
 plot_data: true
 plot_linear: false
-plot_extension: 0.3
+plot_extension: 0.1

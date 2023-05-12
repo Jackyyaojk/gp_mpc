@@ -35,11 +35,21 @@ def get_empty_marker():
 
 # Define the mapping from ROS msg to the state
 def msg_to_state(msg):
-    return {'pose':eulerpose_to_rotpose(msg.position[:6])}
+    q = np.array([msg.transform.rotation.w,
+         msg.transform.rotation.x,
+         msg.transform.rotation.y,
+         msg.transform.rotation.z])
+    r = quat_to_rotvec(q)
+    p = np.array([msg.transform.translation.x,
+         msg.transform.translation.y,
+         msg.transform.translation.z])
+    return np.hstack((p.T,np.squeeze(r)))
 
 # Define the mapping from ROS msg to observation
 def msg_to_obs(msg):
-    return msg.effort[:6]
+    return np.array([msg.wrench.force.x,
+                     msg.wrench.force.y,
+                     msg.wrench.force.z])
 
 def compliance_to_world(init_pose, x):
     # Translate x from being in init_pose frame to world frame.
