@@ -17,12 +17,11 @@ def get_empty_jointstate():
     msg.header.stamp = rospy.Time.now()
     return msg
 
-def get_empty_pose():
+def get_empty_pose(frame_id = 'panda_link0'):
     msg = PoseStamped()
-    msg.header.frame_id = "panda_link0"
+    msg.header.frame_id = frame_id
     msg.header.stamp = rospy.Time.now()
     return msg
-
 
 def get_empty_marker():
     msg = Marker()

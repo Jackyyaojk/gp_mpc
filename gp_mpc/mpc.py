@@ -29,7 +29,6 @@ class MPC:
         self.__N_p = N_p
         self.__constraint_slack = mpc_params['constraint_slack']
 
-
         self.__gp_dynamics = gp_dynamics_dict
         self.__modes = gp_dynamics_dict.keys()            # names of modes
         #self.__F_int = {mode:gp_dynamics_dict[mode].MDS_system().map(self.__N, 'serial') for mode in self.__modes}
@@ -60,7 +59,6 @@ class MPC:
 
         #print(sol['x'])
         self.__vars.set_results(sol['x'])
-
         return self.__vars.filter()
 
     # Formulate the NLP for multiple-shooting
@@ -104,7 +102,7 @@ class MPC:
                                          init_pose = params_sym['pose'],
                                          imp_mass = imp_mass,
                                          imp_damp = 2*ca.sqrt(vars['imp_stiff']),
-                                         imp_stiff = self.__vars['imp_stiff'])
+                                         imp_stiff = ca.DM([100, 100, 100]))#self.__vars['imp_stiff'])
             Xk_next = Fk_next['xf']
 
             J[mode] += ca.sum2(Fk_next['st_cost'])

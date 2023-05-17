@@ -1,17 +1,17 @@
 
 #### COST FUNCTION PARAMETERS  ####
-H: 1         # Force cost
-I: 1570      # Force covariance cos
-Q_vel: 0.1   # Velocity cost
-S: 100000.0     # State covariance cost
-R: 0.30     # Contol cost
+H: 0         # Force cost
+I: 1000      # Force covariance cos
+Q_vel: 0.0   # Velocity cost
+S: 0.0     # State covariance cost
+R: 0.01     # Contol cost
 
 imp_mass: 5
 delta_K_max: 10
 delta_K_cost: 0.1
 K_min: 0.001
 K_max: 400
-K_cost: 0.1
+K_cost: 0.0001
 
 delta_xd_max: 0.01
 
@@ -31,12 +31,12 @@ enable_rotation: false
 state_cov: true            # Consider the state covariance
 simplify_cov: false          # Use only  first element in GP covariance, axis specified in gp_params
 
-mpc_pts: 4
-dt: 0.095
+mpc_pts: 15
+dt: 0.09
 constraint_slack: 0.0
 bound_relax_factor: 1e-5
 
-sim: true
+sim: false
 
 #### Outputs and debug ####
 print_control: true

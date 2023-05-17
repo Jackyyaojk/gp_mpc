@@ -13,6 +13,7 @@ import tf2_ros as tf
 import dynamic_reconfigure.client
 from sensor_msgs.msg import JointState
 from geometry_msgs.msg import PoseStamped, WrenchStamped
+from nav_msgs.msg import Path
 from std_msgs.msg import Float64MultiArray
 from visualization_msgs.msg import Marker
 
@@ -81,6 +82,9 @@ class mpc_impedance_control():
                                             Float64MultiArray, queue_size = 1)
         self.pub_imp_xd = rospy.Publisher ('equilibrium_pose_mpc',
                                             PoseStamped, queue_size = 1)
+
+        self.pub_traj = rospy.Publisher('mpc_traj', Path, queue_size=1)
+
         self.pub_imp_xd_marker = rospy.Publisher ('equilibrium_pose_marker',
                                                   Marker, queue_size = 1)
         if not self.mpc_params['sim']: self.par_client = dynamic_reconfigure.client.Client("/cartesian_impedance_example_controller/dynamic_reconfigure_compliance_param_node")
@@ -93,10 +97,13 @@ class mpc_impedance_control():
 
         # Init animation
         if self.mpc_params['live_plot']:  self.animate_init()
+        rospy.sleep(0.2)
+        self.init_orientation = self.tf_buffer.lookup_transform('panda_link0', 'panda_link8', rospy.Time(0)).transform.rotation
 
         # Performance profiling
         self.control_time = time.time()
         self.timelist = []
+
 
     # Callback function when force message recieved
     def update_force(self, msg):
@@ -110,9 +117,8 @@ class mpc_impedance_control():
                 self.pub_belief.publish(msg_belief)
 
     def update_state_async(self):
-        state_msg = self.tf_buffer.lookup_transform('panda_link0', 'panda_link7', rospy.Time(0))
+        state_msg = self.tf_buffer.lookup_transform('panda_link0', 'panda_link8', rospy.Time(0))
         state = msg_to_state(state_msg)
-        self.curr_rot = state[3:]
         self.rob_state['pose'] = state
         if self.mpc_params['sim']:
             if self.mpc_state:
@@ -169,15 +175,14 @@ class mpc_impedance_control():
         if send_zeros:
             print("Sending zero on all delta impedance gains and desired force")
             return
-    
+
         msg_imp_xd = get_empty_pose()
         msg_imp_xd.pose.position.x = self.mpc_state["des_pose"][0]
         msg_imp_xd.pose.position.y = self.mpc_state["des_pose"][1]
         msg_imp_xd.pose.position.z = self.mpc_state["des_pose"][2]
-        msg_imp_xd.pose.orientation.w = self.curr_rot[3]
-        msg_imp_xd.pose.orientation.x = self.curr_rot[0]
-        msg_imp_xd.pose.orientation.y = self.curr_rot[1]
-        msg_imp_xd.pose.orientation.z = self.curr_rot[2]
+        msg_imp_xd.pose.orientation = self.init_orientation
+
+        self.publish_traj()
 
         if not rospy.is_shutdown():
             self.pub_imp_xd.publish(msg_imp_xd)
@@ -190,6 +195,17 @@ class mpc_impedance_control():
                                                             'translational_stiffness_y':self.mpc_state['imp_stiff'][1],
                                                             'translational_stiffness_z':self.mpc_state['imp_stiff'][2]})
 
+    def publish_traj(self):
+        path = Path()
+        path.header.stamp = rospy.Time.now()
+        path.header.frame_id = 'panda_link8'
+        for traj_pt in self.mpc_state['x_peg1']:
+            traj_pt_pose = get_empty_pose(frame_id = 'panda_link8')
+            traj_pt_pose.pose.position.x = traj_pt[0]
+            traj_pt_pose.pose.position.y = traj_pt[1]
+            traj_pt_pose.pose.position.z = traj_pt[2]
+            path.poses.append(traj_pt_pose)
+        self.pub_traj.publish(path)
 
     def animate_update(self):
         # Plot planned trajectories

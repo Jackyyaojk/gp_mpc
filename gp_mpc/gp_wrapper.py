@@ -112,8 +112,7 @@ class gp_model():
         obss = []
         for path in paths:
             bag = rosbag.Bag(path)
-            tf_buffer = tf.Buffer(cache_time=rospy.Duration(100))
-            tf_listener = tf.TransformListener(tf_buffer)
+            tf_buffer = tf.Buffer(cache_time=rospy.Duration(500))
             t_first_tf = 1e24
             t_last_tf = 0
             for topic, msg, t_ros in bag.read_messages(topics=['/tf_static']):
