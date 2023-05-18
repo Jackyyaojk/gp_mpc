@@ -3,33 +3,27 @@ import casadi as ca
 import numpy as np
 import rospy
 from sensor_msgs.msg import JointState
-from visualization_msgs.msg import Marker
 from geometry_msgs.msg import PoseStamped
 
 ####################################################################################
 #### ROS functions
 
-def get_empty_jointstate():
+def get_empty_jointstate_msg():
     msg = JointState()
     msg.position = np.zeros(6)
     msg.velocity = np.zeros(6)
-    msg.effort = np.zeros(12)
+    msg.effort = np.zeros(6)
     msg.header.stamp = rospy.Time.now()
     return msg
 
-def get_empty_pose(frame_id = 'panda_link0'):
+def get_pose_msg(position = None, frame_id = 'panda_link0'):
     msg = PoseStamped()
     msg.header.frame_id = frame_id
     msg.header.stamp = rospy.Time.now()
-    return msg
-
-def get_empty_marker():
-    msg = Marker()
-    msg.header.frame_id = "panda_link0"
-    msg.header.stamp = rospy.Time.now()
-    msg.type = 2
-    msg.color.r = 1.0
-    msg.color.a = 1.0
+    if position is not None:
+        msg.pose.position.x = position[0]
+        msg.pose.position.y = position[1]
+        msg.pose.position.z = position[2]
     return msg
 
 # Define the mapping from ROS msg to the state

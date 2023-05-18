@@ -1,1 +1,1 @@
-from .decision_vars import decision_var_set
+from .decision_vars import DecisionVarSet

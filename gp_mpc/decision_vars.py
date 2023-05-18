@@ -6,9 +6,8 @@ Helper classes for decision variables in an optimization problem
 import casadi as ca
 import numpy as np
 from sys import version_info
-from copy import deepcopy
 
-class decision_var:
+class DecisionVar:
     """
     Individual optimization variable, initialized from an initial value x0.
     Upper/lower bounds ub/lb default to +/- np.inf unless overwritten
@@ -27,21 +26,18 @@ class decision_var:
         self.ub = np.full(self.shape, ub)
         self.x = x
 
-#        assert np.all(x0 >= self.lb), "x0 below given lower bound"
-#        assert np.all(x0 <= self.ub), "x0 above given upper bound"
-
     def __len__(self):
         return self.size
 
-class decision_var_set:
+class DecisionVarSet:
     """
     Helper class for sets of decision variables.
 
-    It's almost like a dictionary, but with some fun stuff added:
-      - Add new variable to the set with dec_var_set[key] = decision_var(x0)
-      - Keys have an upper and lower bound
-      - Before optimization, [] gives symbolic var, afterwards gives numerical value
+    It's almost like a dictionary, but can vectorize the values repeatably:
+      - Keys have a value which is symbolic before set_results is called, and numeric after
+      - Before set_results, [] gives symbolic var, afterwards gives numerical value
       - Set optimized results with dec_var_set.set_results(x_opt)
+      - Keys have an upper bound, lower bound, and x0, all get vectorized the same    
     """
 
     def __init__(self, symb_type = ca.SX.sym, x0 = {}, lb = {}, ub = {}):
@@ -55,12 +51,11 @@ class decision_var_set:
         assert version_info >= (3, 6), "Python 3.6 required to guarantee dicts are ordered"
         self.__ty = symb_type     # Type of symbolic variable
         self.__vars = {}          # Individual variables
-        self.__optimized = False  # Flag if set_results has been called
 
         for key in x0.keys():
-            self[key] = decision_var(x0[key],
-                                     lb = lb.get(key, -np.inf),
-                                     ub = ub.get(key, np.inf))
+            self[key] = DecisionVar(x0[key],
+                                    lb = lb.get(key, -np.inf),
+                                    ub = ub.get(key, np.inf))
 
     def __setitem__(self, key, value):
         """
@@ -90,11 +85,10 @@ class decision_var_set:
             s += "{}:\n: {}\n".format(key, self[key])
         return s
 
-    def skip_opt(self):
-        for key in self.__vars.keys():
-            self.__vars[key].x = self.__vars[key].x0
+    def vectorize(self, attr):
+        return ca.vertcat(*[getattr(el, attr).reshape((el.size,1)) for el in self.__vars.values()])
 
-    def filter(self, to_ignore = [], ignore_numeric = False):
+    def get_dec_dict(self, to_ignore = [], ignore_numeric = False):
         """
         Returns the decision variables or optimized values not in the to_ignore list.
         Ignore_numeric also drops numerical values from the filter output
@@ -106,12 +100,6 @@ class decision_var_set:
             filtered_dict[key] = self[key]
         return filtered_dict
 
-    def vectorize(self, attr):
-        return ca.vertcat(*[getattr(el, attr).reshape((el.size,1)) for el in self.__vars.values()])
-
-    def get_elem_vector(self, key):
-        return ca.vertcat(self.__vars[key].x.reshape((self.__vars[key].size,1)))
-
     def get_dec_vectors(self):
         """
         Returns a tuple that you need to get that optimization problem going
@@ -119,10 +107,8 @@ class decision_var_set:
         x  = self.vectorize('x')
         lb = self.vectorize('lb')
         ub = self.vectorize('ub')
-        return x, lb, ub
-
-    def get_x0(self):
-        return self.vectorize('x0')
+        x0 = self.vectorize('x0')
+        return x, lb, ub, x0
 
     def get_deviation(self, key):
         """
@@ -146,20 +132,24 @@ class decision_var_set:
             if len(v_shape) == 1: v_shape = (*v_shape,1)
             self.__vars[key].x = np.squeeze(ca.reshape(x_opt[read_pos:read_pos+v_size], *v_shape))
             read_pos += v_size
-        self.__optimized = True
 
-class param_set:
+    def skip_opt(self):
+        for key in self.__vars.keys():
+            self.__vars[key].x = self.__vars[key].x0
+        
+class ParamSet:
     """
     Helper class for parameters. Simple dictionary which vectorizes
     """
-    def __init__(self, p = {}, symb_type = None):
+    def __init__(self, p0 = {}, symb_type = ca.SX.sym):
         assert version_info >= (3, 6), "Python 3.6 required to guarantee dicts are ordered"
-        self.__vars = {}   # Dictionary for holding variables
-        self.__keys = []   # List of elements
+        self.__sym = {}   # Dictionary for symbolic variables
+        self.__num  = {}  # Numerical value of parameters
+        self.__keys = []  # List of elements
         self.__symb_type = symb_type
 
-        for key in p.keys():
-            self[key] = p[key]
+        for key in p0.keys():
+            self[key] = p0[key]
 
     def __setitem__(self, key, value):
         """
@@ -168,18 +158,16 @@ class param_set:
             value: parameter which should be set there
         """
         value = np.asarray(value, float)
-        if self.__symb_type:         # Symbolic parameters
-            self.__vars[key]  = self.__symb_type(key, *value.shape)
-        else:
-            self.__vars[key] = value
-        self.__keys = list(self.__vars.keys())
+        self.__num[key]  = ca.DM(value)
+        self.__sym[key] = self.__symb_type(key, *value.shape)
+        self.__keys = list(self.__sym.keys())
 
     def __getitem__(self, key):
         """
         Return parameter
         """
-        if not key in self.__vars: return None
-        return self.__vars[key]
+        if not key in self.__sym: return None
+        return self.__sym[key]
 
     def __len__(self):
         return sum(len(val) for val in self.__vars.values())
@@ -190,8 +178,14 @@ class param_set:
             s += "{}:\n: {}\n".format(key, self[key])
         return s
 
-    def get_vector(self):
-        return vectorize(self.__vars)
+    # Update the numerical values and return the vectorized params
+    def update(self, num):
+        for k, v in num.items():
+            self.__num[k] = ca.DM(v)
+        return vectorize(self.__num)
+                    
+    def get_sym_vec(self):
+        return vectorize(self.__sym)
 
 def vectorize(dic):
     return ca.vertcat(*[ca.reshape(el, int(np.prod(el.shape)),1) for el in dic.values()])
