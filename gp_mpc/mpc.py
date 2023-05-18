@@ -93,8 +93,8 @@ class MPC:
                                         des_pose = self.__vars['des_pose'],
                                         init_pose = self.__params['pose'],
                                         imp_mass = imp_mass,
-                                        imp_damp = ca.DM([20, 20, 20]),#2*ca.sqrt(self.__vars['imp_stiff']),
-                                        imp_stiff = ca.DM([100, 100, 100]))#self.__vars['imp_stiff'])
+                                        imp_damp = 2*ca.sqrt(self.__vars['imp_stiff']),
+                                        imp_stiff = self.__vars['imp_stiff'])
             x_next = dyn_next['x_next']
             J[mode] += ca.sum2(dyn_next['st_cost'])
 

@@ -50,31 +50,33 @@ class GPDynamics:
         x_w = compliance_to_world(init_pose, x[:self.__N_p]) # converts trajectory into world coords
         f_mu, f_cov = self.__gp.predict(x=x_w[:self.__N_p], cov=[], fast = self.mpc_params['simplify_cov'])
 
-        # For each DOF, apply the dynamics update
-        f_cov_array = []
-        
+        # For each DOF, apply the dynamics update        
         for i in range(N_p):          
             # Semi-implicit damping
             bn = imp_mass[i]/(imp_mass[i]+dt*imp_damp[i])
 
             # Integration
-            x_next[i+N_p] =  bn*x[i+N_p]+dt/imp_mass[i]*(-f_mu[i]+imp_stiff[i]*(des_pose[i]-x[i]))
+            x_next[i+N_p] = bn*x[i+N_p]+dt/imp_mass[i]*(-f_mu[i]+imp_stiff[i]*(des_pose[i]-x[i]))
             x_next[i] = x[i]+dt*x_next[i+N_p]
             
             # Update state covariance
             if self.mpc_params['state_cov']:
                 x_next[i+2*N_p] = x[i+2*N_p]+dt*dt*x[i+3*N_p] # cov pos
                 f_cov_tmp = f_cov[0] if self.mpc_params['simplify_cov'] else f_cov[i]
-                #TODO add the stiffness reduction in cov here
-                x_next[i+3*N_p] = bn**2*x[i+3*N_p]+10*(dt/imp_mass[i])**2*f_cov_tmp
-                if i < 3: f_cov_array.append(f_cov_tmp)
+                x_next[i+3*N_p] = bn**2*x[i+3*N_p]+(dt/imp_mass[i])**2*(f_cov_tmp-imp_stiff[i]*x_next[i+2*N_p])
     
         # Define stage cost, note control costs happen in main MPC problem as control shared btwn modes
-        st_cost = par['Q_vel']*ca.sumsqr(x_next[N_p:2*N_p])
-        st_cost += par['I']*ca.sum1(f_cov)
-        if par['state_cov']: st_cost += par['S']*ca.sum1(x_next[2*N_p])
-        #st_cost += self.__H*ca.sumsqr(f_mu+u[:N_p]) if self.mpc_params['match_human_force'] else self.__H*ca.sumsqr(f_mu) 
-        if self.mpc_params['state_cov']: st_cost += par['S']*ca.sum1(x_next[2*N_p:])
+        st_cost = par['vel_cost']*ca.sumsqr(x_next[N_p:2*N_p])
+        st_cost += par['f_cov_cost']*ca.sum1(f_cov)
+        if par['state_cov']:
+            st_cost += par['pos_cov_cost']*ca.sum1(x_next[2*N_p:3*N_p])
+            st_cost += par['vel_cov_cost']*ca.sum1(x_next[3*N_p:4*N_p])
+        
+        if par['match_gp_force']:
+            st_cost += par['f_cost']*ca.sumsqr(f_mu+imp_stiff.T@(des_pose-x[:N_p]))
+        else:
+            st_cost += par['f_cost']*ca.sumsqr(f_mu) 
+
 
         dynamics = ca.Function('F_int', [x, des_pose, init_pose, imp_mass, imp_damp, imp_stiff],\
                                [x_next, st_cost], \
