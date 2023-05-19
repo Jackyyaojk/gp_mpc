@@ -146,7 +146,7 @@ class MPCImpedanceControl():
 
     # Build and publish the ROS messages
     def build_and_publish(self):
-        msg_imp_xd = get_pose_msg(position = self.mpc_state["des_pose"])
+        msg_imp_xd = get_pose_msg(position = self.mpc_state["des_pose"], frame_id='panda_link8')
         msg_imp_xd.pose.orientation = self.init_orientation
 
         path = self.build_traj_msg()
@@ -167,7 +167,7 @@ class MPCImpedanceControl():
         path = Path()
         path.header.stamp = rospy.Time.now()
         path.header.frame_id = 'panda_link8'
-        for traj_pt in self.mpc_state['x_peg1']:
+        for traj_pt in self.mpc_state['x_peg1'].T:
             traj_pt_pose = get_pose_msg(position = traj_pt, frame_id = 'panda_link8')
             path.poses.append(traj_pt_pose)
         return path

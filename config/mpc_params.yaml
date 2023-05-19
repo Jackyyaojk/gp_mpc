@@ -24,8 +24,8 @@ enable_rotation: false
 state_cov: true            # Consider the state covariance
 simplify_cov: false          # Use only  first element in GP covariance, axis specified in gp_params
 
-mpc_pts: 9
-dt: 0.195
+mpc_pts: 10
+dt: 0.045
 constraint_slack: 0.0
 bound_relax_factor: 1e-5
 

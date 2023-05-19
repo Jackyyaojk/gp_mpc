@@ -75,13 +75,13 @@ class MPC:
         self.__vars = DecisionVarSet(x0 = vars0, ub = ub, lb = lb)
 
         self.build_constraints()
-        
+
         for mode in self.__modes:
             dyn_next = self.__dyn[mode](x = ca.horzcat(np.zeros((N_x, 1)), self.__vars['x_'+mode]),
                                         des_pose = self.__vars['des_pose'],
                                         init_pose = self.__pars['pose'],
                                         imp_mass = self.mpc_params['imp_mass']*np.ones(3),
-                                        imp_damp = 2*ca.sqrt(self.__vars['imp_stiff']),
+                                        imp_damp = 3*ca.sqrt(self.__vars['imp_stiff']),
                                         imp_stiff = self.__vars['imp_stiff'])
     
             self.add_continuity_constraints(dyn_next['x_next'], self.__vars['x_'+mode])        
