@@ -3,7 +3,7 @@
 import numpy as np
 from gp_mpc.gp_model import GP
 
-class mode_detector():
+class ModeDetector():
     '''
     This class allows the current dynamic mode of a system, \eta, to be detected
     given conditional probabilities p(y|x,\eta).  This conditional distribution

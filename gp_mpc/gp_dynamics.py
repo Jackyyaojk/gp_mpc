@@ -12,23 +12,21 @@ class GPDynamics:
     '''
     This class wraps generates the dynamics and cost function, given a GP model
     '''
-    def __init__(self, N_p, mpc_params, gp):
-        self.__N_p = N_p   # Num positions  (3 or 6 depending on with or without rotation)
-        self.__dt = mpc_params['dt']
-
+    def __init__(self, mpc_params, gp):
         self.mpc_params = mpc_params
         self.__gp = gp
+        self.state_dim = self.__gp.state_dim
         self.dec_vars = {}
 
     def build_dec_vars(self):
         # Defining inputs for the dynamics function f(x,u)
-        N_p = self.__N_p
+        N_p = self.state_dim
         cov_flag = self.mpc_params['state_cov']
         
         x = ca.SX.sym('x', 2*N_p+cov_flag*2*N_p) # state at current time step
         x_next = ca.SX(2*N_p+cov_flag*2*N_p,1)   # state at next time step
         x_pos_cov = ca.diag(x[2*N_p:3*N_p]) if self.mpc_params['state_cov'] else []
-      
+       
         # Defining parameters
         imp_mass = ca.SX.sym('imp_mass', N_p)
         imp_damp = ca.SX.sym('imp_damp', N_p)
@@ -41,14 +39,14 @@ class GPDynamics:
     # Defines a mass-spring-damper system with a GP force model
     def build_dynamics(self):
         # Shortening for ergonomics
-        N_p = self.__N_p    # Num of positions in system
-        dt = self.__dt      # Time step for discretization
+        N_p = self.state_dim   # Num of positions in system
         par = self.mpc_params
+        dt = par['dt']
 
         x, x_next, x_pos_cov, imp_mass, imp_damp, imp_stiff, des_pose, init_pose = self.build_dec_vars()
 
-        x_w = compliance_to_world(init_pose, x[:self.__N_p]) # converts trajectory into world coords
-        f_mu, f_cov = self.__gp.predict(x=x_w[:self.__N_p], cov=[], fast = self.mpc_params['simplify_cov'])
+        x_w = compliance_to_world(init_pose, x[:N_p]) # converts trajectory into world coords
+        f_mu, f_cov = self.__gp.predict(x=x_w[:N_p], cov=[], fast = self.mpc_params['simplify_cov'])
 
         # For each DOF, apply the dynamics update        
         for i in range(N_p):          

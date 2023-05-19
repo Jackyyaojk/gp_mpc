@@ -12,19 +12,19 @@ class MPC:
     '''
     This class builds a multiple shooting MPC problem into a solver
     IN:
-      N_p: number of shooting points
+      N_p: dim of positions in dynamics
       mpc_params: the dict for the MPC parameters
       gp_dynamics_dict: the dict of different dynamics objects 
     '''
-    def __init__(self, N_p, mpc_params, gp_dynamics_dict, path):
+    def __init__(self, mpc_params, gp_dynamics_dict, path):
         self.mpc_params = mpc_params
         self.options = yaml_load(path, 'ipopt_params.yaml')
         
         # Set up problem dimensions
-        self.__N = mpc_params['mpc_pts']                  # number of MPC steps
-        self.__dt = mpc_params['dt']                      # sample time
-        self.__N_x = (2+2*mpc_params['state_cov'])*N_p    # number of states of ode
-        self.__N_p = N_p
+        self.__N_p = list(gp_dynamics_dict.values())[0].state_dim 
+        self.__N = mpc_params['mpc_pts']                      # number of MPC steps
+        self.__N_x = (2+2*mpc_params['state_cov'])*self.__N_p # number of states of ode
+        
     
 
         self.__gp_dynamics = gp_dynamics_dict
@@ -33,15 +33,15 @@ class MPC:
         self.__dyn = {mode:gp_dynamics_dict[mode].build_dynamics() for mode in self.__modes}
         
         
-    def solve(self, params):
-        # params are the numerical values of initial robot pose, mode belief, and impedance parameters
+    def solve(self, pars):
+        # IN: params are the numerical values of initial robot pose, mode belief, and impedance parameters
 
         #Create problem and solver
         if not hasattr(self, "solver"):
-            self.build_solver(params)
+            self.build_solver(pars)
 
         # Update parameters for the solver
-        self.args['p'] = self.__params.update(params)
+        self.args['p'] = self.__pars.update(pars)
 
         # Solve the NLP
         sol = self.solver(**self.args)
@@ -55,76 +55,77 @@ class MPC:
         return self.__vars.get_dec_dict()
 
     # Formulate the NLP for multiple-shooting
-    def build_solver(self, params0): 
+    def build_solver(self, pars0): 
         N_x = self.__N_x
-        N_u = self.__N_p
+        N_p = self.__N_p
 
         # Initialize empty NLP
-        J = {mode:0.0 for mode in self.__modes}  # Objective function
-        g = []      # constraints functions
-        lbg = []    # lower bound on constraints
-        ubg = []    # upper-bound on constraints
+        J = 0      # objective function
         vars0 = {} # initial values for decision variables
 
         # Symbolic varaibles for parameters, these get assigned to numerical values in solve()
-        self.__params = ParamSet(params0)
+        self.__pars = ParamSet(pars0)
 
         # Build decision variables
-        imp_mass = self.mpc_params['imp_mass']*np.ones(3)
-        vars0['imp_stiff'] = self.__params['imp_stiff'] # imp stiff in tcp coord
-        vars0['des_pose'] = np.zeros((N_u))             # rest position of imp spring relative to tcp
+        vars0['imp_stiff'] = self.__pars['imp_stiff']   # imp stiff in tcp coord, initial value is current stiff
+        vars0['des_pose'] = np.zeros((N_p))             # rest position of imp spring relative to tcp
         for m in self.__modes:
             vars0['x_'+m] = np.zeros((N_x, self.__N-1)) # trajectory relative to tcp
         ub, lb = self.build_dec_var_constraints()
-        
-        # Turn decision variables into a dec_var object
         self.__vars = DecisionVarSet(x0 = vars0, ub = ub, lb = lb)
 
-        if self.mpc_params['opti_MBK']:
-            g += [self.__vars.get_deviation('imp_stiff')]
-            lbg += [-self.mpc_params['delta_K_max']]*self.__N_p
-            ubg += [self.mpc_params['delta_K_max']]*self.__N_p
-            g += [self.__vars['des_pose']]
-            lbg += [-self.mpc_params['delta_xd_max']]*self.__N_p
-            ubg += [self.mpc_params['delta_xd_max']]*self.__N_p
-
+        self.build_constraints()
+        
         for mode in self.__modes:
             dyn_next = self.__dyn[mode](x = ca.horzcat(np.zeros((N_x, 1)), self.__vars['x_'+mode]),
                                         des_pose = self.__vars['des_pose'],
-                                        init_pose = self.__params['pose'],
-                                        imp_mass = imp_mass,
+                                        init_pose = self.__pars['pose'],
+                                        imp_mass = self.mpc_params['imp_mass']*np.ones(3),
                                         imp_damp = 2*ca.sqrt(self.__vars['imp_stiff']),
                                         imp_stiff = self.__vars['imp_stiff'])
-            x_next = dyn_next['x_next']
-            J[mode] += ca.sum2(dyn_next['st_cost'])
+    
+            self.add_continuity_constraints(dyn_next['x_next'], self.__vars['x_'+mode])        
+            J += self.__pars['belief_'+mode]*ca.sum2(dyn_next['st_cost'])
 
-            g += [ca.reshape(x_next[:,:-1]-self.__vars['x_'+mode][:,:], N_x*(self.__N-1), 1)]
-            lbg += [ self.mpc_params['constraint_slack']]*N_x*(self.__N-1)
-            ubg += [-self.mpc_params['constraint_slack']]*N_x*(self.__N-1)
-
-        # Calculate total objective
-        J_total = self.mpc_params['delta_xd_cost']*ca.sumsqr(self.__vars['des_pose'])
+        # Add control costs
+        J += self.mpc_params['delta_xd_cost']*ca.sumsqr(self.__vars['des_pose'])
         if self.mpc_params['opti_MBK']:
-            J_total += self.mpc_params['delta_K_cost']*ca.sumsqr(self.__vars.get_deviation('imp_stiff'))
-            J_total += self.mpc_params['K_cost']*ca.sumsqr(self.__vars['imp_stiff'])
+            J += self.mpc_params['delta_K_cost']*ca.sumsqr(self.__vars.get_deviation('imp_stiff'))
+            J += self.mpc_params['K_cost']*ca.sumsqr(self.__vars['imp_stiff'])
 
-        for mode in self.__modes:
-            J_total += self.__params['belief_'+mode]*J[mode] # expected value
+        # Need x0 to be numerical when building solver
+        self.__vars.set_x0('imp_stiff', pars0['imp_stiff'])
 
-        self.__vars.set_x0('imp_stiff', params0['imp_stiff']) # x0 needs to be numerical
         # Set up dictionary of arguments to solve
-        w, lbw, ubw, w0 = self.__vars.get_dec_vectors()
+        x, lbx, ubx, x0 = self.__vars.get_dec_vectors()
 
-        self.args = dict(x0=w0, lbx=lbw, ubx=ubw, lbg=lbg, ubg=ubg)
-
-        prob = {'f': J_total, 'x': w, 'g': ca.vertcat(*g), 'p': self.__params.get_sym_vec()}
-
+        self.args = dict(x0=x0, lbx=lbx, ubx=ubx, lbg=self.__lbg, ubg=self.__ubg)
+        prob = dict(f=J, x=x, g=ca.vertcat(*self.__g), p=self.__pars.get_sym_vec())
         self.solver = ca.nlpsol('solver', 'ipopt', prob, self.options)
 
+    def build_constraints(self):
+        # General NLP constraints, not including continuity constraints
+        self.__g = []      # constraints functions
+        self.__lbg = []    # lower bound on constraints
+        self.__ubg = []    # upper-bound on constraints
+        if self.mpc_params['opti_MBK']:
+            self.__g += [self.__vars.get_deviation('imp_stiff')]
+            self.__lbg += [-self.mpc_params['delta_K_max']]*self.__N_p
+            self.__ubg += [self.mpc_params['delta_K_max']]*self.__N_p
+            self.__g += [self.__vars['des_pose']]
+            self.__lbg += [-self.mpc_params['delta_xd_max']]*self.__N_p
+            self.__ubg += [self.mpc_params['delta_xd_max']]*self.__N_p
+
+    def add_continuity_constraints(self, x_next, x):
+        N_x = self.__N_x
+        N = self.__N
+        self.__g += [ca.reshape(x_next[:,:-1]-x, N_x*(N-1), 1)]
+        self.__lbg += [ self.mpc_params['constraint_slack']]*N_x*(N-1)
+        self.__ubg += [-self.mpc_params['constraint_slack']]*N_x*(N-1)
+        
     def build_dec_var_constraints(self):
         ub = {}
         lb = {}
-
         lb['imp_stiff'] = self.mpc_params['K_min']
         ub['imp_stiff'] = self.mpc_params['K_max']
 

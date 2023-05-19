@@ -16,13 +16,13 @@ from nav_msgs.msg import Path
 from std_msgs.msg import Float64MultiArray
 
 # Custom classes -- need absolute import b/c of __main__ here.
-from gp_mpc.mode_inference import mode_detector
-from gp_mpc.gp_wrapper import gp_model
+from gp_mpc.mode_inference import ModeDetector
+from gp_mpc.gp_wrapper import GPModel
 from gp_mpc.gp_dynamics import GPDynamics
 from gp_mpc.mpc import MPC
 from gp_mpc.helper_fns import *
 
-class mpc_impedance_control():
+class MPCImpedanceControl():
     '''
     This class produces commands to change the impedance of a robot according to
     a model of the environment/human and some control policy
@@ -46,26 +46,25 @@ class mpc_impedance_control():
         np.set_printoptions(formatter={'float': '{: 7.2f}'.format})
 
         # Set up or load gp models, GPs will be built if (1) there's no .pkl with the models, or (2) rebuild_gp is true
-        self.gp_models = gp_model(path, rotation = self.rotation)
+        self.gp_models = GPModel(path, rotation = self.rotation)
         self.models, self.modes = self.gp_models.load_models(rebuild = rebuild_gp)
 
         # Updates belief about which mode is active
-        self.mode_detector = mode_detector(self.modes, self.models,
-                                           params = self.mode_detector_params)
+        self.mode_detector = ModeDetector(self.modes, self.models,
+                                          params = self.mode_detector_params)
 
         # Set up robot and mpc state
         self.rob_state = {k:None for k in ('imp_stiff', 'des_pose', 'pose')}
+        self.rob_state.update(self.mode_detector.get_state())
         self.mpc_state = {}
 
         # Init dynamics for each mode
-        self.gp_dynamics_dict = { mode: GPDynamics(N_p = self.state_dim,
-                                                   mpc_params = self.mpc_params,
+        self.gp_dynamics_dict = { mode: GPDynamics(mpc_params = self.mpc_params,
                                                    gp = self.models[mode] )\
                                   for mode in self.modes }
 
         # Init MPC
-        self.mpc = MPC( N_p = self.state_dim,
-                        mpc_params = self.mpc_params,
+        self.mpc = MPC( mpc_params = self.mpc_params,
                         gp_dynamics_dict = self.gp_dynamics_dict,
                         path = path )
 
@@ -106,11 +105,10 @@ class mpc_impedance_control():
                 self.pub_belief.publish(msg_belief)
 
     def update_state_async(self):
-        state_msg = self.tf_buffer.lookup_transform('panda_link0', 'panda_link8', rospy.Time(0), rospy.Duration(0.05))
-        state = msg_to_state(state_msg)
-        self.rob_state['pose'] = state
+        pose_msg = self.tf_buffer.lookup_transform('panda_link0', 'panda_link8', rospy.Time(0), rospy.Duration(0.05))
+        self.rob_state['pose'] = msg_to_state(pose_msg)
         if self.sim:
-            if self.mpc_state:
+            if self.mpc_state: # assume the desired impedance from MPC is achieved
                 self.rob_state['imp_stiff'] = self.mpc_state['imp_stiff']
         else:
             imp_pars = self.par_client.get_configuration()
@@ -198,7 +196,7 @@ class mpc_impedance_control():
 
 def start_node(args):
     rospy.init_node('mpc_impedance_control')
-    node = mpc_impedance_control(args)
+    node = MPCImpedanceControl(args)
 
     # Set shutdown to be executed when ROS exits
     rospy.on_shutdown(node.shutdown)
