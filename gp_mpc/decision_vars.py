@@ -63,7 +63,7 @@ class DecisionVarSet:
             key: name of variable
             value: decision_var which should be set there
         """
-        if value.x is None:
+        if type(value) is DecisionVar and value.x is None:
             value.x = self.__ty(key, *value.shape)
         self.__vars[key] = value
         self.__keys = list(self.__vars.keys())

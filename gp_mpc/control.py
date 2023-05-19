@@ -87,7 +87,7 @@ class MPCImpedanceControl():
         else:
             self.par_client = dynamic_reconfigure.client.Client("/cartesian_impedance_example_controller/dynamic_reconfigure_compliance_param_node")
 
-        self.init_orientation = self.tf_buffer.lookup_transform('panda_link0', 'panda_link8', rospy.Time(0), rospy.Duration(1)).transform.rotation
+        self.init_orientation = self.tf_buffer.lookup_transform('panda_link0', 'panda_link7', rospy.Time(0), rospy.Duration(1)).transform.rotation
 
         # Performance profiling
         self.timelist = []
@@ -105,7 +105,7 @@ class MPCImpedanceControl():
                 self.pub_belief.publish(msg_belief)
 
     def update_state_async(self):
-        pose_msg = self.tf_buffer.lookup_transform('panda_link0', 'panda_link8', rospy.Time(0), rospy.Duration(0.05))
+        pose_msg = self.tf_buffer.lookup_transform('panda_link0', 'panda_link7', rospy.Time(0), rospy.Duration(0.05))
         self.rob_state['pose'] = msg_to_state(pose_msg)
         if self.sim:
             if self.mpc_state: # assume the desired impedance from MPC is achieved
@@ -124,7 +124,6 @@ class MPCImpedanceControl():
             self.rob_state['des_pose']  = np.array([msg.pose.position.x,
                                                     msg.pose.position.y,
                                                     msg.pose.position.z])
-
 
     # Main control loop, update belief, do MPC calc, send out the updated params
     def control(self):
@@ -146,7 +145,8 @@ class MPCImpedanceControl():
 
     # Build and publish the ROS messages
     def build_and_publish(self):
-        msg_imp_xd = get_pose_msg(position = self.mpc_state["des_pose"], frame_id='panda_link8')
+        des_pose_w = compliance_to_world(self.rob_state['pose'], self.mpc_state['des_pose'], only_position=True)
+        msg_imp_xd = get_pose_msg(position = des_pose_w, frame_id='panda_link0')
         msg_imp_xd.pose.orientation = self.init_orientation
 
         path = self.build_traj_msg()
@@ -154,21 +154,22 @@ class MPCImpedanceControl():
         if not rospy.is_shutdown():
             self.pub_imp_xd.publish(msg_imp_xd)
             self.pub_traj.publish(path)
-            if self.sim:
-                msg_imp = get_empty_jointstate_msg()
-                msg_imp.position = np.array(self.mpc_state.get('imp_stiff'))
-                self.pub_imp.publish(msg_imp)
-            else:
-                res = self.par_client.update_configuration({'translational_stiffness_x':self.mpc_state['imp_stiff'][0],
-                                                            'translational_stiffness_y':self.mpc_state['imp_stiff'][1],
-                                                            'translational_stiffness_z':self.mpc_state['imp_stiff'][2]})
+            if self.mpc_params['opt_imp']:
+                if self.sim:
+                    msg_imp = get_empty_jointstate_msg()
+                    msg_imp.position = np.array(self.mpc_state.get('imp_stiff'))
+                    self.pub_imp.publish(msg_imp)
+                else:
+                    res = self.par_client.update_configuration({'translational_stiffness_x':self.mpc_state['imp_stiff'][0],
+                                                                'translational_stiffness_y':self.mpc_state['imp_stiff'][1],
+                                                                'translational_stiffness_z':self.mpc_state['imp_stiff'][2]})
 
     def build_traj_msg(self):
         path = Path()
         path.header.stamp = rospy.Time.now()
-        path.header.frame_id = 'panda_link8'
+        path.header.frame_id = 'panda_link7'
         for traj_pt in self.mpc_state['x_peg1'].T:
-            traj_pt_pose = get_pose_msg(position = traj_pt, frame_id = 'panda_link8')
+            traj_pt_pose = get_pose_msg(position = traj_pt, frame_id = 'panda_link7')
             path.poses.append(traj_pt_pose)
         return path
 

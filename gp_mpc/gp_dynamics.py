@@ -71,7 +71,8 @@ class GPDynamics:
             st_cost += par['vel_cov_cost']*ca.sum1(x_next[3*N_p:4*N_p])
         
         if par['match_gp_force']:
-            st_cost += par['f_cost']*ca.sumsqr(f_mu+imp_stiff.T@(des_pose-x[:N_p]))
+            for i in range(3):
+                st_cost += par['f_cost']*ca.sumsqr(f_mu[i]+imp_stiff[i]*(des_pose[i]-x[i]))
         else:
             st_cost += par['f_cost']*ca.sumsqr(f_mu) 
 

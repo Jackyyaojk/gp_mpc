@@ -1,14 +1,14 @@
 
 #### COST FUNCTION PARAMETERS  ####
-f_cost: 1      # Force cost
-f_cov_cost: 10 # Force covariance cos
+f_cost: 10      # Force cost
+f_cov_cost: 1 # Force covariance cos
 match_gp_force: true     # Cost function penalizes |f_gp - f_imp| instead of |f_gp|
 
 vel_cost: 0    # Velocity cost
-pos_cov_cost: 10000  # Position covariance cost
-vel_cov_cost: 1000    # Velocity covariance cost
-delta_xd_cost: 0.01  # cost on imp stiffness displacement
-delta_xd_max: 0.05  # maximum displacement of imp spring
+pos_cov_cost: 0  # Position covariance cost
+vel_cov_cost: 0    # Velocity covariance cost
+delta_xd_cost: 0.0  # cost on imp stiffness displacement
+delta_xd_max: 0.5  # maximum displacement of imp spring
 
 imp_mass: 5
 delta_K_max: 10
@@ -18,15 +18,15 @@ K_max: 400
 K_cost: 0.000
 
 #### MPC Problem ####
-opti_MBK: true             # Jointly optimize M/B/K params
+opt_imp: false             # Jointly optimize M/B/K params
 enable_rotation: false
 
 state_cov: true            # Consider the state covariance
 simplify_cov: false          # Use only  first element in GP covariance, axis specified in gp_params
 
 mpc_pts: 10
-dt: 0.045
+dt: 0.015
 constraint_slack: 0.0
-bound_relax_factor: 1e-5
+bound_relax_factor: 1e-6
 
 print_control: true

@@ -44,7 +44,7 @@ def msg_to_obs(msg):
                      msg.wrench.force.y,
                      msg.wrench.force.z])
 
-def compliance_to_world(init_pose, x):
+def compliance_to_world(init_pose, x, only_position=False):
     # Translate x from being in init_pose frame to world frame.
     #R = rotvec_to_rotation(init_pose[3:])
     #x_w = R@x[:3]+init_pose[:3]
@@ -54,7 +54,7 @@ def compliance_to_world(init_pose, x):
     # Old method!
     q0 = rotvec_to_quat(init_pose[3:])           # Initial robot orientation, quaternion
     x_w = quat_vec_mult(q0, x[:3])+init_pose[:3] # Linear position in world coords
-    if x.size()[0] == 6:
+    if not only_position and x.size()[0] == 6:
         x_w = ca.vertcat(x_w, quat_to_rotvec(quat_quat_mult(xyz_to_quat(x[3:]), q0)))
     return x_w
 

@@ -58,6 +58,7 @@ class MPC:
     def build_solver(self, pars0): 
         N_x = self.__N_x
         N_p = self.__N_p
+        opt_imp = self.mpc_params['opt_imp']
 
         # Initialize empty NLP
         J = 0      # objective function
@@ -67,12 +68,14 @@ class MPC:
         self.__pars = ParamSet(pars0)
 
         # Build decision variables
-        vars0['imp_stiff'] = self.__pars['imp_stiff']   # imp stiff in tcp coord, initial value is current stiff
+        if opt_imp: vars0['imp_stiff'] = self.__pars['imp_stiff']   # imp stiff in tcp coord, initial value is current stiff
         vars0['des_pose'] = np.zeros((N_p))             # rest position of imp spring relative to tcp
         for m in self.__modes:
             vars0['x_'+m] = np.zeros((N_x, self.__N-1)) # trajectory relative to tcp
         ub, lb = self.build_dec_var_constraints()
         self.__vars = DecisionVarSet(x0 = vars0, ub = ub, lb = lb)
+
+        imp_stiff = self.__vars['imp_stiff'] if opt_imp else self.__pars['imp_stiff']
 
         self.build_constraints()
 
@@ -81,20 +84,20 @@ class MPC:
                                         des_pose = self.__vars['des_pose'],
                                         init_pose = self.__pars['pose'],
                                         imp_mass = self.mpc_params['imp_mass']*np.ones(3),
-                                        imp_damp = 3*ca.sqrt(self.__vars['imp_stiff']),
-                                        imp_stiff = self.__vars['imp_stiff'])
-    
+                                        imp_damp = 3*ca.sqrt(imp_stiff),
+                                        imp_stiff = imp_stiff)
+
             self.add_continuity_constraints(dyn_next['x_next'], self.__vars['x_'+mode])        
             J += self.__pars['belief_'+mode]*ca.sum2(dyn_next['st_cost'])
 
         # Add control costs
         J += self.mpc_params['delta_xd_cost']*ca.sumsqr(self.__vars['des_pose'])
-        if self.mpc_params['opti_MBK']:
+        if opt_imp:
             J += self.mpc_params['delta_K_cost']*ca.sumsqr(self.__vars.get_deviation('imp_stiff'))
             J += self.mpc_params['K_cost']*ca.sumsqr(self.__vars['imp_stiff'])
 
         # Need x0 to be numerical when building solver
-        self.__vars.set_x0('imp_stiff', pars0['imp_stiff'])
+        if opt_imp: self.__vars.set_x0('imp_stiff', pars0['imp_stiff'])
 
         # Set up dictionary of arguments to solve
         x, lbx, ubx, x0 = self.__vars.get_dec_vectors()
@@ -108,13 +111,10 @@ class MPC:
         self.__g = []      # constraints functions
         self.__lbg = []    # lower bound on constraints
         self.__ubg = []    # upper-bound on constraints
-        if self.mpc_params['opti_MBK']:
+        if self.mpc_params['opt_imp']:
             self.__g += [self.__vars.get_deviation('imp_stiff')]
             self.__lbg += [-self.mpc_params['delta_K_max']]*self.__N_p
             self.__ubg += [self.mpc_params['delta_K_max']]*self.__N_p
-            self.__g += [self.__vars['des_pose']]
-            self.__lbg += [-self.mpc_params['delta_xd_max']]*self.__N_p
-            self.__ubg += [self.mpc_params['delta_xd_max']]*self.__N_p
 
     def add_continuity_constraints(self, x_next, x):
         N_x = self.__N_x
@@ -126,6 +126,8 @@ class MPC:
     def build_dec_var_constraints(self):
         ub = {}
         lb = {}
+        lb['des_pose'] = -self.mpc_params['delta_xd_max']
+        ub['des_pose'] =  self.mpc_params['delta_xd_max']
         lb['imp_stiff'] = self.mpc_params['K_min']
         ub['imp_stiff'] = self.mpc_params['K_max']
 

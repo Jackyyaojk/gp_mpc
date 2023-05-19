@@ -134,8 +134,8 @@ class GPModel():
                 num_obs = bag.get_message_count(topic_name)
                 print('Loading ros bag {}  with {} msgs'.format(path, num_obs))
 
-            t_last_tf -= 0.05
-                
+            t_last_tf -= 0.1
+
             t_first = 1e24
             t_last = 0
             # Finding the first and last messages (rosbags not guarnateed to be in order)
@@ -150,7 +150,6 @@ class GPModel():
 
             pos_first = self.get_pose(msg_first, tf_buffer)
             pos_last = self.get_pose(msg_last, tf_buffer)
-
 
             for _, msg, t_ros in bag.read_messages(topics=[topic_name]):
                 if t_ros.to_sec() < t_first_tf or t_ros.to_sec() > t_last_tf:
