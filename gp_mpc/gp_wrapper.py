@@ -103,7 +103,7 @@ class GPModel():
             self.sparsify(mode)
 
     def get_pose(self, msg, tf_buffer):
-        trans = tf_buffer.lookup_transform('panda_link0', 'panda_link7', msg.header.stamp, rospy.Duration(1))
+        trans = tf_buffer.lookup_transform('panda_link0', 'panda_EE', msg.header.stamp, rospy.Duration(1))
         return msg_to_state(trans)
 
     def load_bags(self, paths):
@@ -116,8 +116,8 @@ class GPModel():
             t_last_tf = 0
             for topic, msg, t_ros in bag.read_messages(topics=['/tf_static']):
                 for msg_tf in msg.transforms:
-                    tf_buffer.set_transform(msg_tf,'default_authority')
-                    
+                    tf_buffer.set_transform_static(msg_tf,'default_authority')
+
             for topic, msg, t_ros in bag.read_messages(topics=['/tf']):
                 t = t_ros.to_sec()
                 if t < t_first_tf: t_first_tf = t
@@ -135,6 +135,7 @@ class GPModel():
                 print('Loading ros bag {}  with {} msgs'.format(path, num_obs))
 
             t_last_tf -= 0.1
+            t_first_tf += 0.1
 
             t_first = 1e24
             t_last = 0

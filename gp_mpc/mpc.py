@@ -50,7 +50,7 @@ class MPC:
         self.args['x0'] = sol['x']
         self.args['lam_x0'] = sol['lam_x']
         self.args['lam_g0'] = sol['lam_g']
-
+        
         self.__vars.set_results(sol['x'])
         return self.__vars.get_dec_dict()
 
@@ -87,9 +87,8 @@ class MPC:
                                         imp_damp = 3*ca.sqrt(imp_stiff),
                                         imp_stiff = imp_stiff)
 
-            self.add_continuity_constraints(dyn_next['x_next'], self.__vars['x_'+mode])        
+            self.add_continuity_constraints(dyn_next['x_next'], self.__vars['x_'+mode])
             J += self.__pars['belief_'+mode]*ca.sum2(dyn_next['st_cost'])
-
         # Add control costs
         J += self.mpc_params['delta_xd_cost']*ca.sumsqr(self.__vars['des_pose'])
         if opt_imp:

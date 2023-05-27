@@ -1,8 +1,12 @@
 data_path:
-  peg1: !!set
-    1.bag: null
-    2.bag: null
-    3.bag: null
+  front: !!set
+    front_1.bag: null
+    front_2.bag: null
+    front_3.bag: null
+  left: !!set
+    left_1.bag: null
+    left_2.bag: null
+    left_3.bag: null
 gp_method: ME         # Input uncertainty method, ME = mean equiv, TA = taylor approx
 simplify_cov_axis: 2  # Which axis to use for the reduced cov, default 0
 

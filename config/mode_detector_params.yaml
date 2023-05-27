@@ -4,5 +4,5 @@ bel_smoothing: 1.0
 #lik_floor: -10.0
 min_force: 3.0
 print_belief: true
-print_dof_lik: false
+print_dof_lik: true
 use_direction: true

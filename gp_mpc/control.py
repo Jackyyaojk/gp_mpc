@@ -54,7 +54,7 @@ class MPCImpedanceControl():
                                           params = self.mode_detector_params)
 
         # Set up robot and mpc state
-        self.rob_state = {k:None for k in ('imp_stiff', 'des_pose', 'pose')}
+        self.rob_state = {k:None for k in ('imp_stiff', 'pose')}
         self.rob_state.update(self.mode_detector.get_state())
         self.mpc_state = {}
 
@@ -69,14 +69,12 @@ class MPCImpedanceControl():
                         path = path )
 
         # Init ROS
-        self.sub_imp_xd  = rospy.Subscriber('cartesian_impedance_example_controller/equilibrium_pose',
-                                            PoseStamped, self.update_imp_xd, queue_size=1)
         self.sub_force   = rospy.Subscriber('franka_state_controller/F_ext',
                                             WrenchStamped, self.update_force, queue_size=1)
         self.tf_buffer = tf.Buffer()
         self.tf_listener = tf.TransformListener(self.tf_buffer)
         self.pub_belief  = rospy.Publisher ('belief', Float64MultiArray, queue_size = 1)
-        self.pub_imp_xd = rospy.Publisher ('equilibrium_pose_mpc', PoseStamped, queue_size = 1)
+        self.pub_imp_xd = rospy.Publisher ('cartesian_impedance_example_controller/equilibrium_pose', PoseStamped, queue_size = 1)
         self.pub_traj = rospy.Publisher('mpc_traj', Path, queue_size=1)
 
         # If this is in simulation; i.e. a bag file is being used, add pub which integrates the delta_impedance_gains
@@ -86,8 +84,11 @@ class MPCImpedanceControl():
             self.rob_state['imp_stiff'] = np.array([200, 200, 200])
         else:
             self.par_client = dynamic_reconfigure.client.Client("/cartesian_impedance_example_controller/dynamic_reconfigure_compliance_param_node")
+            res = self.par_client.update_configuration({'translational_stiffness_x':40.,
+                                                        'translational_stiffness_y':40.,
+                                                        'translational_stiffness_z':40.})
 
-        self.init_orientation = self.tf_buffer.lookup_transform('panda_link0', 'panda_link7', rospy.Time(0), rospy.Duration(1)).transform.rotation
+        self.init_orientation = self.tf_buffer.lookup_transform('panda_link0', 'panda_EE', rospy.Time(0), rospy.Duration(1)).transform.rotation
 
         # Performance profiling
         self.timelist = []
@@ -98,14 +99,14 @@ class MPCImpedanceControl():
         obs = np.array([msg.wrench.force.x, msg.wrench.force.y, msg.wrench.force.z])
 
         # If multiple modes and there is external force, update the mode belief
-        if len(self.modes) > 1 and np.linalg.norm(obs[:3]) > self.mode_detector_params['min_force'] and self.rob_state['pose']:
+        if len(self.modes) > 1 and np.linalg.norm(obs[:3]) > self.mode_detector_params['min_force']:
             bel_arr = self.mode_detector.update_belief(obs[:self.state_dim], self.rob_state['pose'][:self.state_dim])
             if self.pub_belief:
                 msg_belief = Float64MultiArray(data = bel_arr)
                 self.pub_belief.publish(msg_belief)
 
     def update_state_async(self):
-        pose_msg = self.tf_buffer.lookup_transform('panda_link0', 'panda_link7', rospy.Time(0), rospy.Duration(0.05))
+        pose_msg = self.tf_buffer.lookup_transform('panda_link0', 'panda_EE', rospy.Time(0), rospy.Duration(0.05))
         self.rob_state['pose'] = msg_to_state(pose_msg)
         if self.sim:
             if self.mpc_state: # assume the desired impedance from MPC is achieved
@@ -138,7 +139,7 @@ class MPCImpedanceControl():
         self.mpc_state = self.mpc.solve(params)
         self.timelist.append(time.time() - start)
 
-        print(self.mpc_state['x_peg1'])
+        #print(self.mpc_state['x_peg1'])
         if self.mpc_params['print_control']: self.print_results()
 
         self.build_and_publish()
@@ -167,9 +168,9 @@ class MPCImpedanceControl():
     def build_traj_msg(self):
         path = Path()
         path.header.stamp = rospy.Time.now()
-        path.header.frame_id = 'panda_link7'
-        for traj_pt in self.mpc_state['x_peg1'].T:
-            traj_pt_pose = get_pose_msg(position = traj_pt, frame_id = 'panda_link7')
+        path.header.frame_id = 'panda_EE'
+        for traj_pt in self.mpc_state['x_left'].T:
+            traj_pt_pose = get_pose_msg(position = traj_pt, frame_id = 'panda_EE')
             path.poses.append(traj_pt_pose)
         return path
 

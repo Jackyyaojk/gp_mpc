@@ -124,7 +124,7 @@ class DecisionVarSet:
         x_opt is the numerical optimization results, fills the dict x with reshaping as needed
         """
         x_opt = x_opt.full()
-        assert len(x_opt) is len(self), "Length of optimization doesn't match initial x0"
+        assert len(x_opt) == len(self), "Length of optimization doesn't match initial x0"
         read_pos = 0
         for key in self.__keys:
             v_size  = self.__vars[key].size

@@ -54,7 +54,8 @@ class GPDynamics:
             bn = imp_mass[i]/(imp_mass[i]+dt*imp_damp[i])
 
             # Integration
-            x_next[i+N_p] = bn*x[i+N_p]+dt/imp_mass[i]*(-f_mu[i]+imp_stiff[i]*(des_pose[i]-x[i]))
+            #x_next[i+N_p] = bn*x[i+N_p]+dt/imp_mass[i]*(-f_mu[i]+imp_stiff[i]*(des_pose[i]-x[i])) # with human forces
+            x_next[i+N_p] = bn*x[i+N_p]+dt/imp_mass[i]*(imp_stiff[i]*(des_pose[i]-x[i]))
             x_next[i] = x[i]+dt*x_next[i+N_p]
             
             # Update state covariance

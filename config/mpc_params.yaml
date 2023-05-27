@@ -1,14 +1,14 @@
 
 #### COST FUNCTION PARAMETERS  ####
-f_cost: 10      # Force cost
-f_cov_cost: 1 # Force covariance cos
+f_cost: 0.5      # Force cost
+f_cov_cost: 5 # Force covariance cos
 match_gp_force: true     # Cost function penalizes |f_gp - f_imp| instead of |f_gp|
 
 vel_cost: 0    # Velocity cost
 pos_cov_cost: 0  # Position covariance cost
-vel_cov_cost: 0    # Velocity covariance cost
-delta_xd_cost: 0.0  # cost on imp stiffness displacement
-delta_xd_max: 0.5  # maximum displacement of imp spring
+vel_cov_cost: 1    # Velocity covariance cost
+delta_xd_cost: 0.0001  # cost on imp stiffness displacement
+delta_xd_max: 0.15 # maximum displacement of imp spring
 
 imp_mass: 5
 delta_K_max: 10
@@ -24,8 +24,8 @@ enable_rotation: false
 state_cov: true            # Consider the state covariance
 simplify_cov: false          # Use only  first element in GP covariance, axis specified in gp_params
 
-mpc_pts: 10
-dt: 0.015
+mpc_pts: 13
+dt: 0.1
 constraint_slack: 0.0
 bound_relax_factor: 1e-6
 
