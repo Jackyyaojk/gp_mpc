@@ -105,6 +105,7 @@ class MPCImpedanceControl():
                 msg_belief = Float64MultiArray(data = bel_arr)
                 self.pub_belief.publish(msg_belief)
 
+    # Update the state elements which aren't updated through topics + callback fns
     def update_state_async(self):
         pose_msg = self.tf_buffer.lookup_transform('panda_link0', 'panda_EE', rospy.Time(0), rospy.Duration(0.05))
         self.rob_state['pose'] = msg_to_state(pose_msg)
@@ -128,6 +129,7 @@ class MPCImpedanceControl():
 
     # Main control loop, update belief, do MPC calc, send out the updated params
     def control(self):
+        # Check that we have all needed state elements
         if any(el is None for el in self.rob_state.values()) or rospy.is_shutdown(): return
 
         # MPC calc
@@ -139,17 +141,18 @@ class MPCImpedanceControl():
         self.mpc_state = self.mpc.solve(params)
         self.timelist.append(time.time() - start)
 
-        #print(self.mpc_state['x_peg1'])
         if self.mpc_params['print_control']: self.print_results()
 
         self.build_and_publish()
 
     # Build and publish the ROS messages
     def build_and_publish(self):
+        # Build message for equilibrium pose of impedance controller
         des_pose_w = compliance_to_world(self.rob_state['pose'], self.mpc_state['des_pose'], only_position=True)
         msg_imp_xd = get_pose_msg(position = des_pose_w, frame_id='panda_link0')
         msg_imp_xd.pose.orientation = self.init_orientation
 
+        # Build message to show total MPC path
         path = self.build_traj_msg()
 
         if not rospy.is_shutdown():
@@ -205,9 +208,9 @@ def start_node(args):
     rospy.sleep(1e-1) # Sleep so ROS can init
 
     while not rospy.is_shutdown():
-        node.update_state_async()
-        node.control()
-        time.sleep(1e-8) # Sleep so ROS subscribers can update
+        node.update_state_async()  # Update all non-topic state elements
+        node.control()             # Do MPC calc + publish
+        time.sleep(1e-8)           # Sleep so ROS subscribers can update
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()

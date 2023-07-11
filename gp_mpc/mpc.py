@@ -29,14 +29,19 @@ class MPC:
 
         self.__gp_dynamics = gp_dynamics_dict
         self.__modes = gp_dynamics_dict.keys()            # names of modes
+
+        # The .map function in casadi allows ~parallelization of the calc, had minimal impact on current problem
         #self.__dyn = {mode:gp_dynamics_dict[mode].build_dynamics().map(self.__N, 'serial') for mode in self.__modes}
         self.__dyn = {mode:gp_dynamics_dict[mode].build_dynamics() for mode in self.__modes}
-        
+
+        self.args = {} # this dict holds the arguments needed for the solver:
+          # parameters
+          # initial guess for dec vars and lagrange multipliers
         
     def solve(self, pars):
         # IN: params are the numerical values of initial robot pose, mode belief, and impedance parameters
 
-        #Create problem and solver
+        # If no solver, create it
         if not hasattr(self, "solver"):
             self.build_solver(pars)
 
@@ -50,7 +55,8 @@ class MPC:
         self.args['x0'] = sol['x']
         self.args['lam_x0'] = sol['lam_x']
         self.args['lam_g0'] = sol['lam_g']
-        
+
+        # Break the solution vector into individual named elements and return
         self.__vars.set_results(sol['x'])
         return self.__vars.get_dec_dict()
 
@@ -79,6 +85,7 @@ class MPC:
 
         self.build_constraints()
 
+        # For each mode of the system, build a roll out, enforce continuity constraints, add stage cost
         for mode in self.__modes:
             dyn_next = self.__dyn[mode](x = ca.horzcat(np.zeros((N_x, 1)), self.__vars['x_'+mode]),
                                         des_pose = self.__vars['des_pose'],
@@ -89,6 +96,7 @@ class MPC:
 
             self.add_continuity_constraints(dyn_next['x_next'], self.__vars['x_'+mode])
             J += self.__pars['belief_'+mode]*ca.sum2(dyn_next['st_cost'])
+            
         # Add control costs
         J += self.mpc_params['delta_xd_cost']*ca.sumsqr(self.__vars['des_pose'])
         if opt_imp:
